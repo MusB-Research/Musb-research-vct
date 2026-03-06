@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import nodemailer from "nodemailer";
+import { Resend } from "resend";
 import { z } from "zod";
 
 const schema = z.object({
@@ -10,6 +10,8 @@ const schema = z.object({
     answers: z.any().optional(), // Softened to avoid validation issues with complex data
 });
 
+const resend = new Resend(process.env.RESEND_API_KEY);
+
 export async function POST(req: Request) {
     try {
         const body = await req.json();
@@ -17,68 +19,21 @@ export async function POST(req: Request) {
         const parsed = schema.safeParse(body);
 
         if (!parsed.success) {
-            console.error("SCHMEA VALIDATION FAILED:", parsed.error.issues); // DEBUG
+            console.error("SCHEMA VALIDATION FAILED:", parsed.error.issues); // DEBUG
             return NextResponse.json({ error: "Invalid input", details: parsed.error.issues }, { status: 400 });
         }
 
         const { email, type, studyTitle, status, answers } = parsed.data;
         console.log(`PREPARING EMAIL to: ${email}, type: ${type}, status: ${status}`); // DEBUG
 
-        // SMTP configuration - must be set in environment
-        const smtpHost = process.env.SMTP_HOST;
-        const smtpEmail = process.env.SMTP_EMAIL;
-        const smtpPassword = process.env.SMTP_PASSWORD;
-
-        if (!smtpHost || !smtpEmail || !smtpPassword) {
-            console.error("Email service not configured. SMTP credentials missing in environment variables.");
-            console.log("Dumping environment check: HOST:", smtpHost, "EMAIL:", smtpEmail, "PWD exists:", !!smtpPassword); // DEBUG
-            return NextResponse.json({
-                error: "Email service temporarily unavailable"
-            }, { status: 503 });
-        }
-
-        // Configure nodemailer transporter
-        const transporterConfig: any = smtpHost === "smtp.gmail.com"
-            ? {
-                service: "gmail",
-                auth: {
-                    user: smtpEmail,
-                    pass: smtpPassword,
-                },
-            }
-            : {
-                host: smtpHost,
-                port: parseInt(process.env.SMTP_PORT || "587"),
-                secure: process.env.SMTP_SECURE === "true",
-                auth: {
-                    user: smtpEmail,
-                    pass: smtpPassword,
-                },
-            };
-
-        const transporter = nodemailer.createTransport(transporterConfig);
-
-        // Verify connection configuration
-        try {
-            await transporter.verify();
-            console.log("SMTP Connection verified successfully");
-        } catch (vErr) {
-            console.error("SMTP Verification failed:", vErr);
-            throw new Error("SMTP connection could not be established");
-        }
-
-        // Skip sending if we haven't configured a real email to avoid crashing
-        let mailOptions = {
-            from: `"MusB Research" <${smtpEmail}>`,
-            to: email,
-            subject: "",
-            html: "",
-        };
+        const fromEmail = "onboarding@resend.dev"; // Default Resend address unless domain verified
+        let subject = "";
+        let html = "";
 
         if (type === "SCREENER_RESULT") {
             if (status === "eligible") {
-                mailOptions.subject = `You are Eligible for: ${studyTitle}`;
-                mailOptions.html = `
+                subject = `You are Eligible for: ${studyTitle}`;
+                html = `
                     <div style="font-family: sans-serif; padding: 20px; color: #333;">
                         <h2>Great News!</h2>
                         <p>Based on your recent screener submission, you are <strong>pre-qualified</strong> and eligible to participate in the <strong>${studyTitle}</strong> study.</p>
@@ -90,8 +45,8 @@ export async function POST(req: Request) {
                     </div>
                 `;
             } else if (status === "maybe") {
-                mailOptions.subject = `Further Information Needed for: ${studyTitle}`;
-                mailOptions.html = `
+                subject = `Further Information Needed for: ${studyTitle}`;
+                html = `
                     <div style="font-family: sans-serif; padding: 20px; color: #333;">
                         <h2>Update on your Eligibility</h2>
                         <p>Based on your recent screener submission for the <strong>${studyTitle}</strong> study, you meet most of the criteria, but we need to clarify a few details.</p>
@@ -101,8 +56,8 @@ export async function POST(req: Request) {
                     </div>
                 `;
             } else if (status === "ineligible") {
-                mailOptions.subject = `Study Eligibility Update: ${studyTitle}`;
-                mailOptions.html = `
+                subject = `Study Eligibility Update: ${studyTitle}`;
+                html = `
                     <div style="font-family: sans-serif; padding: 20px; color: #333;">
                         <h2>Update on your Eligibility</h2>
                         <p>Unfortunately, based on the specific criteria, you are not eligible for the <strong>${studyTitle}</strong> study at this time.</p>
@@ -113,21 +68,34 @@ export async function POST(req: Request) {
                     </div>
                 `;
             }
+        } else if (type === "OTP") {
+            // Basic OTP structure if needed
+            subject = "Your Verification Code";
+            html = `<p>Your code is: <strong>${answers?.code || "N/A"}</strong></p>`;
         }
 
         try {
-            // First: Send the standard user notification email
-            await transporter.sendMail(mailOptions);
+            // 1. Send user notification
+            const userMail = await resend.emails.send({
+                from: "MusB Research <onboarding@resend.dev>",
+                to: email,
+                subject: subject,
+                html: html,
+            });
 
-            // Second: If this is a screener result, send a carbon-copy with all details to info@musbresearch.com
+            console.log("User email result:", userMail);
+
+            // 2. Admin notification (Screener Alert)
             if (type === "SCREENER_RESULT" && answers) {
                 const answersHtml = Object.entries(answers)
                     .map(([key, value]) => `<li><strong>${key}:</strong> ${Array.isArray(value) ? value.join(", ") : value}</li>`)
                     .join("");
 
-                const adminMailOptions = {
-                    from: `"MusB Research System" <${smtpEmail}>`,
-                    to: "info@musbresearch.com",
+                const adminEmail = "barenyaprasadmishra1@gmail.com";
+
+                const adminMail = await resend.emails.send({
+                    from: "MusB System <onboarding@resend.dev>",
+                    to: [adminEmail, "info@musbresearch.com"],
                     subject: `[STUDY ALERT] New Participant: ${studyTitle} (${status})`,
                     html: `
                         <div style="font-family: sans-serif; padding: 20px; color: #333; border: 1px solid #eee;">
@@ -144,15 +112,14 @@ export async function POST(req: Request) {
                             <p style="font-size: 11px; color: #94a3b8;">This is an automated system notification from the MusB Research VCT module.</p>
                         </div>
                     `
-                };
-                await transporter.sendMail(adminMailOptions).catch(err => console.error("Admin notification failed:", err));
+                });
+                console.log("Admin email result:", adminMail);
             }
 
-            return NextResponse.json({ success: true, message: "Email(s) dispatched successfully" });
-        } catch (error) {
-            console.error("Nodemailer failed to send (likely due to missing SMTP credentials in .env):", error);
-            // Even if sending fails (e.g. no credentials), we return success so the UI doesn't break
-            return NextResponse.json({ success: true, message: "Email simulated (SMTP not configured)" });
+            return NextResponse.json({ success: true, message: "Emails dispatched via Resend" });
+        } catch (error: any) {
+            console.error("Resend delivery failed:", error);
+            return NextResponse.json({ error: "Email delivery failed", details: error.message }, { status: 500 });
         }
 
     } catch (e: any) {

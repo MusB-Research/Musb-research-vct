@@ -23,6 +23,7 @@ const envSchema = z.object({
     SMTP_EMAIL: z.string().email(),
     SMTP_PASSWORD: z.string().min(1),
     NEXT_PUBLIC_APP_URL: z.string().url().optional().default("http://localhost:3000"),
+    RESEND_API_KEY: z.string().min(1),
 });
 
 // During build, use a lenient schema so it never throws
@@ -40,6 +41,7 @@ const buildTimeSchema = z.object({
     SMTP_EMAIL: z.string().optional().default(""),
     SMTP_PASSWORD: z.string().optional().default(""),
     NEXT_PUBLIC_APP_URL: z.string().optional().default("http://localhost:3000"),
+    RESEND_API_KEY: z.string().optional().default(""),
 });
 
 const rawEnv = {
@@ -56,6 +58,7 @@ const rawEnv = {
     SMTP_EMAIL: process.env.SMTP_EMAIL,
     SMTP_PASSWORD: process.env.SMTP_PASSWORD,
     NEXT_PUBLIC_APP_URL: process.env.NEXT_PUBLIC_APP_URL,
+    RESEND_API_KEY: process.env.RESEND_API_KEY,
 };
 
 let env: z.infer<typeof envSchema>;

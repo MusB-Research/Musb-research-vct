@@ -28,6 +28,7 @@ class Settings(BaseSettings):
 
     # CORS
     ALLOWED_ORIGINS: Any = [
+        "https://musb-research-vct.vercel.app",
         "https://musbresearchwebsite.vercel.app",
         "https://musb-research-f3on.vercel.app",
         "http://localhost:3000",

@@ -347,6 +347,9 @@ class Token(BaseModel):
     access_token: str
     token_type: str = "bearer"
     role: str
+    id: str  # Added to skip /me call
+    name: Optional[str] = None  # Added to skip /me call
+    email: str  # Added to skip /me call
 
 
 class TokenData(BaseModel):

@@ -135,7 +135,14 @@ async def login(request: Request, form_data: OAuth2PasswordRequestForm = Depends
         request=request
     )
 
-    return Token(access_token=token, token_type="bearer", role=user["role"])
+    return Token(
+        access_token=token, 
+        token_type="bearer", 
+        role=user["role"],
+        id=str(user["_id"]),
+        name=decrypt_data(user.get("name")),
+        email=user["email"]
+    )
 
 
 @router.get("/me", response_model=UserOut)

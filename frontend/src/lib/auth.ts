@@ -55,20 +55,9 @@ export const authOptions: NextAuthOptions = {
                         throw new Error(err.detail || "Invalid email or password.");
                     }
 
-                    // Backend returns: { access_token, token_type, role }
+                    // Backend returns: { access_token, token_type, role, id, name, email }
                     const tokenData = await res.json();
-
-                    // Fetch the user profile using the returned token
-                    const meRes = await fetch(`${API_URL}/api/auth/me`, {
-                        headers: { Authorization: `Bearer ${tokenData.access_token}` },
-                    });
-
-                    if (!meRes.ok) {
-                        throw new Error("Failed to load user profile.");
-                    }
-
-                    const user = await meRes.json();
-                    const role: string = user.role || "PARTICIPANT";
+                    const role: string = tokenData.role || "PARTICIPANT";
 
                     // Role gate: the login page passes `allowedRole` to restrict access
                     if (credentials.allowedRole) {
@@ -83,9 +72,9 @@ export const authOptions: NextAuthOptions = {
                     }
 
                     return {
-                        id: user.id,
-                        name: user.name,
-                        email: user.email,
+                        id: tokenData.id,
+                        name: tokenData.name,
+                        email: tokenData.email,
                         role,
                         accessToken: tokenData.access_token,
                         redirectTo: ROLE_REDIRECT[role] || "/dashboard/participant",

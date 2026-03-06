@@ -251,15 +251,10 @@ function SignInContent() {
                 const tokenData = tempTokenData;
                 const role: string = tokenData.role?.toUpperCase() || "";
 
-                const meRes = await fetch(`${apiUrl}/api/auth/me`, {
-                    headers: { Authorization: `Bearer ${tokenData.access_token}` },
-                });
-                const user = meRes.ok ? await meRes.json() : { id: "", name: email, email, role: role };
-
                 ParticipantAuth.save(tokenData.access_token, {
-                    id: user.id || "",
-                    name: user.name || email,
-                    email: user.email || email,
+                    id: tokenData.id || "",
+                    name: tokenData.name || email,
+                    email: tokenData.email || email,
                     role: "PARTICIPANT",
                 });
 

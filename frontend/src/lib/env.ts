@@ -18,6 +18,11 @@ const envSchema = z.object({
     RECAPTCHA_SECRET_KEY: z.string().min(1),
     GOOGLE_CLIENT_ID: z.string().min(1),
     GOOGLE_CLIENT_SECRET: z.string().min(1),
+    SMTP_HOST: z.string().min(1),
+    SMTP_PORT: z.string().min(1),
+    SMTP_EMAIL: z.string().email(),
+    SMTP_PASSWORD: z.string().min(1),
+    NEXT_PUBLIC_APP_URL: z.string().url().optional().default("http://localhost:3000"),
 });
 
 // During build, use a lenient schema so it never throws
@@ -30,6 +35,11 @@ const buildTimeSchema = z.object({
     RECAPTCHA_SECRET_KEY: z.string().optional().default(""),
     GOOGLE_CLIENT_ID: z.string().optional().default(""),
     GOOGLE_CLIENT_SECRET: z.string().optional().default(""),
+    SMTP_HOST: z.string().optional().default(""),
+    SMTP_PORT: z.string().optional().default("587"),
+    SMTP_EMAIL: z.string().optional().default(""),
+    SMTP_PASSWORD: z.string().optional().default(""),
+    NEXT_PUBLIC_APP_URL: z.string().optional().default("http://localhost:3000"),
 });
 
 const rawEnv = {
@@ -41,6 +51,11 @@ const rawEnv = {
     RECAPTCHA_SECRET_KEY: process.env.RECAPTCHA_SECRET_KEY,
     GOOGLE_CLIENT_ID: process.env.GOOGLE_CLIENT_ID,
     GOOGLE_CLIENT_SECRET: process.env.GOOGLE_CLIENT_SECRET,
+    SMTP_HOST: process.env.SMTP_HOST,
+    SMTP_PORT: process.env.SMTP_PORT,
+    SMTP_EMAIL: process.env.SMTP_EMAIL,
+    SMTP_PASSWORD: process.env.SMTP_PASSWORD,
+    NEXT_PUBLIC_APP_URL: process.env.NEXT_PUBLIC_APP_URL,
 };
 
 let env: z.infer<typeof envSchema>;

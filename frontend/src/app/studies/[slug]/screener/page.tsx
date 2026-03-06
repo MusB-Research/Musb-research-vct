@@ -92,10 +92,14 @@ export default function StudyScreenerPage({ params }: { params: Promise<{ slug: 
 
             // Immediately dispatch the email using our Next.js API route
             const effectiveEmail = status === "authenticated" ? session?.user?.email : answers.email;
+            console.log("NOTIFYING EMAIL:", effectiveEmail); // DEBUG
+
             if (effectiveEmail) {
                 // Ensure the status matches what we just set
                 const currentStatus = (age < 18 || participatedRecently) ? "ineligible" : hasConditions ? "maybe" : "eligible";
-                await fetch("/api/notify", {
+                console.log("NOTIFYING STATUS:", currentStatus); // DEBUG
+
+                const response = await fetch("/api/notify", {
                     method: "POST",
                     headers: { "Content-Type": "application/json" },
                     body: JSON.stringify({
@@ -105,7 +109,15 @@ export default function StudyScreenerPage({ params }: { params: Promise<{ slug: 
                         status: currentStatus,
                         answers: answers // Send all form data to the notify API
                     })
-                }).catch(err => console.error("Failed to send notification:", err));
+                });
+
+                const result = await response.json();
+                console.log("NOTIFY API RESULT:", result);
+                if (!response.ok) {
+                    console.error("NOTIFY API FAILED:", result);
+                }
+            } else {
+                console.warn("ABORTING NOTIFY - NO EMAIL FOUND!"); // DEBUG
             }
 
             // If logged in, we could sync this to backend
@@ -338,16 +350,19 @@ export default function StudyScreenerPage({ params }: { params: Promise<{ slug: 
                                     )}
                                 </button>
                             ) : (
-                                <button
-                                    onClick={() => {
-                                        sessionStorage.setItem(`screenerState_${study.slug}`, JSON.stringify({ status: "eligible" }));
-                                        const callbackUrl = encodeURIComponent(window.location.pathname);
-                                        router.push(`/signin?callbackUrl=${callbackUrl}`);
-                                    }}
-                                    className="w-full py-4 bg-cyan-600 hover:bg-cyan-500 text-white font-black uppercase tracking-widest rounded-xl shadow-lg shadow-cyan-600/20 transition-all flex items-center justify-center gap-2"
-                                >
-                                    Login / Sign Up to Register <ArrowRight size={18} />
-                                </button>
+                                <div className="space-y-4">
+                                    <p className="text-slate-400 text-sm">To secure your spot and receive your official registration ID, please create a free MusB Research account.</p>
+                                    <button
+                                        onClick={() => {
+                                            sessionStorage.setItem(`screenerState_${slug}`, JSON.stringify({ status: "eligible" }));
+                                            const callbackUrl = encodeURIComponent(window.location.pathname);
+                                            router.push(`/signin?callbackUrl=${callbackUrl}`);
+                                        }}
+                                        className="w-full py-4 bg-cyan-600 hover:bg-cyan-500 text-white font-black uppercase tracking-widest rounded-xl shadow-lg shadow-cyan-600/20 transition-all flex items-center justify-center gap-2"
+                                    >
+                                        Create Account / Sign In <ArrowRight size={18} />
+                                    </button>
+                                </div>
                             )}
                         </div>
                     )}
@@ -387,16 +402,19 @@ export default function StudyScreenerPage({ params }: { params: Promise<{ slug: 
                                     <Calendar size={18} /> Schedule Screening Call
                                 </button>
                             ) : (
-                                <button
-                                    onClick={() => {
-                                        sessionStorage.setItem(`screenerState_${study.slug}`, JSON.stringify({ status: "maybe" }));
-                                        const callbackUrl = encodeURIComponent(window.location.pathname);
-                                        router.push(`/signin?callbackUrl=${callbackUrl}`);
-                                    }}
-                                    className="w-full py-4 bg-cyan-600 hover:bg-cyan-500 text-white font-black uppercase tracking-widest rounded-xl shadow-lg shadow-cyan-600/20 transition-all flex items-center justify-center gap-2"
-                                >
-                                    Login / Sign Up to Continue <ArrowRight size={18} />
-                                </button>
+                                <div className="space-y-4">
+                                    <p className="text-slate-400 text-sm">Please create an account or sign in to schedule your screening call with our team.</p>
+                                    <button
+                                        onClick={() => {
+                                            sessionStorage.setItem(`screenerState_${slug}`, JSON.stringify({ status: "maybe" }));
+                                            const callbackUrl = encodeURIComponent(window.location.pathname);
+                                            router.push(`/signin?callbackUrl=${callbackUrl}`);
+                                        }}
+                                        className="w-full py-4 bg-cyan-600 hover:bg-cyan-500 text-white font-black uppercase tracking-widest rounded-xl shadow-lg shadow-cyan-600/20 transition-all flex items-center justify-center gap-2"
+                                    >
+                                        Create Account / Sign In <ArrowRight size={18} />
+                                    </button>
+                                </div>
                             )}
                         </div>
                     )}

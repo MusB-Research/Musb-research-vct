@@ -7,19 +7,22 @@ const schema = z.object({
     type: z.enum(["SCREENER_RESULT", "OTP", "ALERT"]),
     studyTitle: z.string().optional(),
     status: z.enum(["eligible", "maybe", "ineligible"]).optional(),
-    answers: z.record(z.string(), z.any()).optional(), // Added to capture all form data
+    answers: z.any().optional(), // Softened to avoid validation issues with complex data
 });
 
 export async function POST(req: Request) {
     try {
         const body = await req.json();
+        console.log("NOTIFY API REACHED with body:", body); // DEBUG
         const parsed = schema.safeParse(body);
 
         if (!parsed.success) {
+            console.error("SCHMEA VALIDATION FAILED:", parsed.error.issues); // DEBUG
             return NextResponse.json({ error: "Invalid input", details: parsed.error.issues }, { status: 400 });
         }
 
         const { email, type, studyTitle, status, answers } = parsed.data;
+        console.log(`PREPARING EMAIL to: ${email}, type: ${type}, status: ${status}`); // DEBUG
 
         // SMTP configuration - must be set in environment
         const smtpHost = process.env.SMTP_HOST;
@@ -28,21 +31,41 @@ export async function POST(req: Request) {
 
         if (!smtpHost || !smtpEmail || !smtpPassword) {
             console.error("Email service not configured. SMTP credentials missing in environment variables.");
+            console.log("Dumping environment check: HOST:", smtpHost, "EMAIL:", smtpEmail, "PWD exists:", !!smtpPassword); // DEBUG
             return NextResponse.json({
                 error: "Email service temporarily unavailable"
             }, { status: 503 });
         }
 
-        // Configure nodemailer transporter with environment credentials
-        const transporter = nodemailer.createTransport({
-            host: smtpHost,
-            port: parseInt(process.env.SMTP_PORT || "587"),
-            secure: process.env.SMTP_SECURE === "true",
-            auth: {
-                user: smtpEmail,
-                pass: smtpPassword,
-            },
-        });
+        // Configure nodemailer transporter
+        const transporterConfig: any = smtpHost === "smtp.gmail.com"
+            ? {
+                service: "gmail",
+                auth: {
+                    user: smtpEmail,
+                    pass: smtpPassword,
+                },
+            }
+            : {
+                host: smtpHost,
+                port: parseInt(process.env.SMTP_PORT || "587"),
+                secure: process.env.SMTP_SECURE === "true",
+                auth: {
+                    user: smtpEmail,
+                    pass: smtpPassword,
+                },
+            };
+
+        const transporter = nodemailer.createTransport(transporterConfig);
+
+        // Verify connection configuration
+        try {
+            await transporter.verify();
+            console.log("SMTP Connection verified successfully");
+        } catch (vErr) {
+            console.error("SMTP Verification failed:", vErr);
+            throw new Error("SMTP connection could not be established");
+        }
 
         // Skip sending if we haven't configured a real email to avoid crashing
         let mailOptions = {

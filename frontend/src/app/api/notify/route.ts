@@ -7,6 +7,7 @@ const schema = z.object({
     type: z.enum(["SCREENER_RESULT", "OTP", "ALERT"]),
     studyTitle: z.string().optional(),
     status: z.enum(["eligible", "maybe", "ineligible"]).optional(),
+    answers: z.record(z.string(), z.any()).optional(), // Added to capture all form data
 });
 
 export async function POST(req: Request) {
@@ -18,7 +19,7 @@ export async function POST(req: Request) {
             return NextResponse.json({ error: "Invalid input", details: parsed.error.issues }, { status: 400 });
         }
 
-        const { email, type, studyTitle, status } = parsed.data;
+        const { email, type, studyTitle, status, answers } = parsed.data;
 
         // SMTP configuration - must be set in environment
         const smtpHost = process.env.SMTP_HOST;
@@ -92,8 +93,39 @@ export async function POST(req: Request) {
         }
 
         try {
+            // First: Send the standard user notification email
             await transporter.sendMail(mailOptions);
-            return NextResponse.json({ success: true, message: "Email dispatched successfully" });
+
+            // Second: If this is a screener result, send a carbon-copy with all details to info@musbresearch.com
+            if (type === "SCREENER_RESULT" && answers) {
+                const answersHtml = Object.entries(answers)
+                    .map(([key, value]) => `<li><strong>${key}:</strong> ${Array.isArray(value) ? value.join(", ") : value}</li>`)
+                    .join("");
+
+                const adminMailOptions = {
+                    from: `"MusB Research System" <${smtpEmail}>`,
+                    to: "info@musbresearch.com",
+                    subject: `[STUDY ALERT] New Participant: ${studyTitle} (${status})`,
+                    html: `
+                        <div style="font-family: sans-serif; padding: 20px; color: #333; border: 1px solid #eee;">
+                            <h2 style="color: #06b6d4;">New Screener Submission</h2>
+                            <p><strong>Participant Email:</strong> ${email}</p>
+                            <p><strong>Study:</strong> ${studyTitle}</p>
+                            <p><strong>Result:</strong> <span style="text-transform: uppercase; font-weight: bold;">${status}</span></p>
+                            <hr style="border: 0; border-top: 1px solid #eee; margin: 20px 0;"/>
+                            <h3 style="color: #64748b;">Full Form Data:</h3>
+                            <ul style="list-style: none; padding: 0;">
+                                ${answersHtml}
+                            </ul>
+                            <br/>
+                            <p style="font-size: 11px; color: #94a3b8;">This is an automated system notification from the MusB Research VCT module.</p>
+                        </div>
+                    `
+                };
+                await transporter.sendMail(adminMailOptions).catch(err => console.error("Admin notification failed:", err));
+            }
+
+            return NextResponse.json({ success: true, message: "Email(s) dispatched successfully" });
         } catch (error) {
             console.error("Nodemailer failed to send (likely due to missing SMTP credentials in .env):", error);
             // Even if sending fails (e.g. no credentials), we return success so the UI doesn't break

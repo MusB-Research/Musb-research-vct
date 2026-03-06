@@ -91,17 +91,19 @@ export default function StudyScreenerPage({ params }: { params: Promise<{ slug: 
             }
 
             // Immediately dispatch the email using our Next.js API route
-            if (answers.email) {
+            const effectiveEmail = status === "authenticated" ? session?.user?.email : answers.email;
+            if (effectiveEmail) {
                 // Ensure the status matches what we just set
                 const currentStatus = (age < 18 || participatedRecently) ? "ineligible" : hasConditions ? "maybe" : "eligible";
                 await fetch("/api/notify", {
                     method: "POST",
                     headers: { "Content-Type": "application/json" },
                     body: JSON.stringify({
-                        email: answers.email,
+                        email: effectiveEmail,
                         type: "SCREENER_RESULT",
                         studyTitle: study.title,
-                        status: currentStatus
+                        status: currentStatus,
+                        answers: answers // Send all form data to the notify API
                     })
                 }).catch(err => console.error("Failed to send notification:", err));
             }

@@ -60,12 +60,7 @@ export default async function RootLayout({
 }: Readonly<{
     children: React.ReactNode;
 }>) {
-    // 🛡️ Global Server-Side Console suppression for production protection
-    if (process.env.NODE_ENV === "production") {
-        console.log = () => { };
-        console.info = () => { };
-        console.debug = () => { };
-    }
+    // 🛡️ Global Client-Side Console suppression for production is handled in the <head> script below.
 
     const cookieStore = await cookies();
     const perfMode = cookieStore.get("perf-mode")?.value || "high";

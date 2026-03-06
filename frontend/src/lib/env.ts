@@ -5,7 +5,9 @@ import { z } from "zod";
 // This prevents the build from failing when secrets aren't baked into the build image.
 const isBuildPhase =
     process.env.NEXT_PHASE === "phase-production-build" ||
-    process.env.BUILDING === "true";
+    process.env.BUILDING === "true" ||
+    process.env.NODE_ENV === "production" && !process.env.DATABASE_URL ||
+    !!process.env.NEXT_IS_EXPORT_WORKER;
 
 const envSchema = z.object({
     DATABASE_URL: z.string().url(),

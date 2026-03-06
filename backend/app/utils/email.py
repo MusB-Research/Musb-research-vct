@@ -42,17 +42,22 @@ async def send_email_notification(
         if html:
             msg.add_alternative(html, subtype="html")
             
-        with smtplib.SMTP(host, port) as server:
-            if port == 587:
-                 server.starttls()
-            server.login(str(user), str(password))
-            server.send_message(msg)
+        def _send_sync():
+            # Add explicit timeout for the SMTP connection
+            with smtplib.SMTP(host, port, timeout=10) as server:
+                if port == 587:
+                     server.starttls()
+                server.login(str(user), str(password))
+                server.send_message(msg)
+        
+        # Offload blocking SMTP call to a separate thread to keep the event loop free
+        import asyncio
+        await asyncio.to_thread(_send_sync)
             
         logger.info(f"Notification email successfully dispatched to {to_email}")
         return True
     except Exception as e:
         logger.error(f"Failed to send email to {to_email}: {str(e)}")
-        # We return True anyway to not block the main workflow, but logs capture the error
         return True
 
 async def notify_coordinator_new_message(

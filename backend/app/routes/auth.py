@@ -110,11 +110,22 @@ async def login(request: Request, form_data: OAuth2PasswordRequestForm = Depends
     # Rate limiting: max 5 attempts per 15 minutes
     await rate_limit_check(request, "/api/auth/login")
 
+    # Step 1: User Lookup (Rapid with email index)
     user = await db["users"].find_one({"email": form_data.username})
-    if not user or not verify_password(form_data.password, user.get("passwordHash", "")):
+    
+    # Step 2: Handle "User Not Found" fast
+    if not user:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Invalid credentials",
+            detail="Invalid email or password",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
+
+    # Step 3: Password Work (Costly)
+    if not verify_password(form_data.password, user.get("passwordHash", "")):
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Invalid email or password",
             headers={"WWW-Authenticate": "Bearer"},
         )
 
@@ -125,11 +136,11 @@ async def login(request: Request, form_data: OAuth2PasswordRequestForm = Depends
         "modules": get_modules_for_role(user["role"]),
     })
     
-    # HIPAA Audit: Log successful login
+    # HIPAA Audit: Log only successful login to avoid DB bloat
     await log_audit_event(
         db=db,
         user_id=str(user["_id"]),
-        action="LOGIN",
+        action="LOGIN_SUCCESS",
         resource="System:Auth",
         details="User logged in via Password",
         request=request

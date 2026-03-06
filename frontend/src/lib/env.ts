@@ -54,13 +54,21 @@ if (isBuildPhase) {
     const _env = envSchema.safeParse(rawEnv);
     if (!_env.success) {
         const missingKeys = Object.keys(_env.error.format()).filter(k => k !== "_errors");
-        console.error("❌ Missing environment variables:", missingKeys.join(", "));
-        console.error("Please set these in your Vercel project settings > Environment Variables.");
-        throw new Error(
-            `Server cannot start. Missing environment variables: ${missingKeys.join(", ")}`
-        );
+
+        if (process.env.NODE_ENV === "production") {
+            console.error("⚠️  PRODUCTION WARNING: Missing or invalid environment variables:", missingKeys.join(", "));
+            console.error("The app may crash or misbehave. Please set these in your hosting provider settings.");
+            // Fallback to buildTimeSchema in production to keep the shell alive
+            env = buildTimeSchema.parse(rawEnv) as z.infer<typeof envSchema>;
+        } else {
+            console.error("❌ Missing environment variables:", missingKeys.join(", "));
+            throw new Error(
+                `Server cannot start. Missing environment variables: ${missingKeys.join(", ")}`
+            );
+        }
+    } else {
+        env = _env.data;
     }
-    env = _env.data;
 }
 
 export { env };

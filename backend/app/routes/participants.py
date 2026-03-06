@@ -14,6 +14,146 @@ from app.routes.audit import log_audit_event
 router = APIRouter(prefix="/api/participants", tags=["Participants"])
 
 
+# ─── My Profile (Participant self) ─────────────────────────────────────────────
+# IMPORTANT: These /me/* routes MUST be defined BEFORE /{participant_id} routes.
+# FastAPI matches routes in order — if the parameterized route comes first,
+# /me/profile would be treated as participant_id="me" and return a 400 error.
+
+@router.get("/me/profile", response_model=ParticipantOut)
+async def my_profile(current_user=Depends(get_current_user), db=Depends(get_db)):
+    """Participant: view own profile."""
+    p = await db["participants"].find_one({"userId": current_user.user_id})
+    if not p:
+        raise HTTPException(status_code=404, detail="Profile not found")
+    user = None
+    if current_user.user_id and ObjectId.is_valid(current_user.user_id):
+        user = await db["users"].find_one({"_id": ObjectId(current_user.user_id)})
+    return await _map_participant(p, db, user)
+
+
+@router.patch("/me/profile")
+async def update_my_profile(
+    body: dict,
+    current_user=Depends(get_current_user),
+    db=Depends(get_db)
+):
+    """Participant: update own profile (e.g., timezone)."""
+    p = await db["participants"].find_one({"userId": current_user.user_id})
+    if not p:
+        raise HTTPException(status_code=404, detail="Profile not found")
+
+    update_data = {}
+    if "timezone" in body:
+        update_data["timezone"] = body["timezone"]
+    if "phone" in body:
+        update_data["phone"] = encrypt_data(body["phone"])
+    if "notes" in body:
+        update_data["notes"] = encrypt_data(body["notes"])
+
+    if update_data:
+        update_data["updatedAt"] = datetime.now(timezone.utc)
+        await db["participants"].update_one(
+            {"userId": current_user.user_id},
+            {"$set": update_data}
+        )
+
+    return {"message": "Profile updated successfully"}
+
+
+@router.get("/me/report")
+async def get_my_report(
+    current_user=Depends(get_current_user),
+    db=Depends(get_db)
+):
+    """Generate a summary report for the participant."""
+    participant = await db["participants"].find_one({"userId": current_user.user_id})
+    if not participant:
+        raise HTTPException(status_code=404, detail="Participant not found")
+    
+    completed_tasks = await db["taskInstances"].count_documents({
+        "participantId": str(participant["_id"]),
+        "status": "COMPLETED"
+    })
+    pending_tasks = await db["taskInstances"].count_documents({
+        "participantId": str(participant["_id"]),
+        "status": {"$in": ["PENDING", "OVERDUE"]}
+    })
+    
+    study = None
+    if participant.get("studyId"):
+        study_id_str = participant["studyId"]
+        if ObjectId.is_valid(study_id_str):
+            study = await db["studies"].find_one({"_id": ObjectId(study_id_str)})
+        if not study:
+            study = await db["studies"].find_one({"slug": study_id_str})
+
+    user = None
+    if current_user.user_id and ObjectId.is_valid(current_user.user_id):
+        user = await db["users"].find_one({"_id": ObjectId(current_user.user_id)})
+    name = decrypt_data(user.get("name")) if user and user.get("name") else "Participant"
+
+    return {
+        "participantName": name,
+        "reportGeneratedAt": datetime.now(timezone.utc),
+        "studyTitle": study["title"] if study else "Not Enrolled",
+        "progress": {
+            "completedTasks": completed_tasks,
+            "pendingTasks": pending_tasks,
+            "complianceScore": int((completed_tasks / max(completed_tasks + pending_tasks, 1)) * 100)
+        },
+        "message": "Thank you for your valuable contribution to clinical research."
+    }
+
+
+@router.post("/me/enroll")
+async def enroll_me(
+    current_user=Depends(get_current_user),
+    db=Depends(get_db)
+):
+    """
+    Finalize enrollment for the current authenticated participant.
+    """
+    p = await db["participants"].find_one({"userId": current_user.user_id})
+    if not p:
+        raise HTTPException(status_code=404, detail="Participant profile not found")
+    return await _enroll_logic(p, db)
+
+
+@router.post("/me/withdraw")
+async def withdraw_me(
+    request: Request,
+    reason: Optional[str] = None,
+    current_user=Depends(get_current_user),
+    db=Depends(get_db)
+):
+    """Participant: Withdraw from the study (GDPR Right to Withdraw)."""
+    participant = await db["participants"].find_one({"userId": current_user.user_id})
+    if not participant:
+        raise HTTPException(status_code=404, detail="Participant profile not found")
+
+    now = datetime.now(timezone.utc)
+    await db["participants"].update_one(
+        {"_id": participant["_id"]},
+        {"$set": {
+            "status": "WITHDRAWN",
+            "withdrawalReason": encrypt_data(reason),
+            "withdrawnAt": now,
+            "updatedAt": now
+        }}
+    )
+
+    await log_audit_event(
+        db=db,
+        user_id=current_user.user_id,
+        action="WITHDRAW",
+        resource=f"Participant:{participant['_id']}",
+        details=f"Reason: {reason if reason else 'No reason provided'}",
+        request=request
+    )
+    
+    return {"message": "You have successfully withdrawn from the study. Your data will be handled according to policy."}
+
+
 async def _map_participant(p: dict, db, user: Optional[dict] = None) -> ParticipantOut:
     study_title = None
     coordinator_id = None
@@ -156,10 +296,12 @@ async def submit_screener(
         raise HTTPException(status_code=404, detail="No participant profile for this user.")
 
     responses = body.responses
-    is_eligible = (
-        int(responses.get("age", 0)) >= 18 and
-        responses.get("smoker", "yes") == "no"
-    )
+    age = int(responses.get("age", 0))
+    
+    # Bug fix: eligibility was checking 'smoker' field which the frontend form
+    # never sends. Use the actual screener fields: age >= 18 and no recent trial.
+    participated_recently = str(responses.get("recentTrial", "false")).lower() in ("true", "yes", "1")
+    is_eligible = age >= 18 and not participated_recently
 
     responses_str = json.dumps(body.responses)
     
@@ -213,49 +355,6 @@ async def get_screener_responses(
         "isEligible": doc["isEligible"],
         "completedAt": doc["completedAt"]
     }
-
-
-# ─── My Profile (Participant self) ───────────────────────────────────────────
-
-@router.get("/me/profile", response_model=ParticipantOut)
-async def my_profile(current_user=Depends(get_current_user), db=Depends(get_db)):
-    """Participant: view own profile."""
-    p = await db["participants"].find_one({"userId": current_user.user_id})
-    if not p:
-        raise HTTPException(status_code=404, detail="Profile not found")
-    user = None
-    if current_user.user_id and ObjectId.is_valid(current_user.user_id):
-        user = await db["users"].find_one({"_id": ObjectId(current_user.user_id)})
-    return await _map_participant(p, db, user)
-
-
-@router.patch("/me/profile")
-async def update_my_profile(
-    body: dict,
-    current_user=Depends(get_current_user),
-    db=Depends(get_db)
-):
-    """Participant: update own profile (e.g., timezone)."""
-    p = await db["participants"].find_one({"userId": current_user.user_id})
-    if not p:
-        raise HTTPException(status_code=404, detail="Profile not found")
-
-    update_data = {}
-    if "timezone" in body:
-        update_data["timezone"] = body["timezone"]
-    if "phone" in body:
-        update_data["phone"] = encrypt_data(body["phone"])
-    if "notes" in body:
-        update_data["notes"] = encrypt_data(body["notes"])
-
-    if update_data:
-        update_data["updatedAt"] = datetime.now(timezone.utc)
-        await db["participants"].update_one(
-            {"userId": current_user.user_id},
-            {"$set": update_data}
-        )
-
-    return {"message": "Profile updated successfully"}
 
 
 # ─── Participant: Consent ─────────────────────────────────────────────────────
@@ -363,88 +462,3 @@ async def _enroll_logic(p: dict, db):
         "randomized": arm_id is not None
     }
 
-# ─── Participant: Withdrawal (GDPR/Compliance) ────────────────────────────────
-
-@router.post("/me/withdraw")
-async def withdraw_me(
-    request: Request,
-    reason: Optional[str] = None,
-    current_user=Depends(get_current_user),
-    db=Depends(get_db)
-):
-    """Participant: Withdraw from the study (GDPR Right to Withdraw)."""
-    participant = await db["participants"].find_one({"userId": current_user.user_id})
-    if not participant:
-        raise HTTPException(status_code=404, detail="Participant profile not found")
-
-    now = datetime.now(timezone.utc)
-    await db["participants"].update_one(
-        {"_id": participant["_id"]},
-        {"$set": {
-            "status": "WITHDRAWN",
-            "withdrawalReason": encrypt_data(reason),
-            "withdrawnAt": now,
-            "updatedAt": now
-        }}
-    )
-
-    
-    await log_audit_event(
-        db=db,
-        user_id=current_user.user_id,
-        action="WITHDRAW",
-        resource=f"Participant:{participant['_id']}",
-        details=f"Reason: {reason if reason else 'No reason provided'}",
-        request=request
-    )
-    
-    return {"message": "You have successfully withdrawn from the study. Your data will be handled according to policy."}
-
-
-# ─── Participant Engagement: Reports (Section 4.4) ───────────────────────────
-
-@router.get("/me/report")
-async def get_my_report(
-    current_user=Depends(get_current_user),
-    db=Depends(get_db)
-):
-    """Generate a summary report for the participant."""
-    participant = await db["participants"].find_one({"userId": current_user.user_id})
-    if not participant:
-        raise HTTPException(status_code=404, detail="Participant not found")
-    
-    # Gather some stats for the report
-    completed_tasks = await db["taskInstances"].count_documents({
-        "participantId": str(participant["_id"]),
-        "status": "COMPLETED"
-    })
-    
-    pending_tasks = await db["taskInstances"].count_documents({
-        "participantId": str(participant["_id"]),
-        "status": {"$in": ["PENDING", "OVERDUE"]}
-    })
-    
-    study = None
-    if participant.get("studyId"):
-        study_id_str = participant["studyId"]
-        if ObjectId.is_valid(study_id_str):
-            study = await db["studies"].find_one({"_id": ObjectId(study_id_str)})
-        if not study:
-            study = await db["studies"].find_one({"slug": study_id_str})
-
-    user = None
-    if current_user.user_id and ObjectId.is_valid(current_user.user_id):
-        user = await db["users"].find_one({"_id": ObjectId(current_user.user_id)})
-    name = decrypt_data(user.get("name")) if user and user.get("name") else "Participant"
-
-    return {
-        "participantName": name,
-        "reportGeneratedAt": datetime.now(timezone.utc),
-        "studyTitle": study["title"] if study else "Not Enrolled",
-        "progress": {
-            "completedTasks": completed_tasks,
-            "pendingTasks": pending_tasks,
-            "complianceScore": int((completed_tasks / max(completed_tasks + pending_tasks, 1)) * 100)
-        },
-        "message": "Thank you for your valuable contribution to clinical research."
-    }

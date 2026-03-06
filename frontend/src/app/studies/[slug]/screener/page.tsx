@@ -76,65 +76,92 @@ export default function StudyScreenerPage({ params }: { params: Promise<{ slug: 
 
         setIsRegistering(true);
         try {
-            // Mock logic for guests (they will re-validate upon signup)
             const age = parseInt(answers.age);
             const participatedRecently = answers.recentTrial === true;
             const hasConditions = (answers.conditions || []).length > 0;
 
-            if (isNaN(age) || age < 18 || participatedRecently) {
-                setEligibilityStatus("ineligible");
-            } else if (hasConditions) {
-                // If they have conditions, they are "maybe" eligible (need call)
-                setEligibilityStatus("maybe");
-            } else {
-                setEligibilityStatus("eligible");
-            }
+            // Compute status as a LOCAL variable — React state updates are async
+            // so we can't rely on eligibilityStatus being set yet when we send the email
+            const currentStatus: "eligible" | "maybe" | "ineligible" =
+                (isNaN(age) || age < 18 || participatedRecently)
+                    ? "ineligible"
+                    : hasConditions
+                        ? "maybe"
+                        : "eligible";
 
-            // Immediately dispatch the email using our Next.js API route
-            const effectiveEmail = status === "authenticated" ? session?.user?.email : answers.email;
-            console.log("NOTIFYING EMAIL:", effectiveEmail); // DEBUG
+            setEligibilityStatus(currentStatus);
 
-            if (effectiveEmail) {
-                // Ensure the status matches what we just set
-                const currentStatus = (age < 18 || participatedRecently) ? "ineligible" : hasConditions ? "maybe" : "eligible";
-                console.log("NOTIFYING STATUS:", currentStatus); // DEBUG
+            // Get participant identity
+            const participantEmail = status === "authenticated"
+                ? session?.user?.email
+                : answers.email || null;
+
+            const participantName = status === "authenticated"
+                ? (session?.user?.name || session?.user?.email)
+                : (answers.name || null);
+
+            console.log("[SCREENER] Computed status:", currentStatus, "| Email:", participantEmail || "guest/no-email");
+
+            // Always fire the notify API — even for guests (admin always gets the alert)
+            try {
+                const notifyBody: Record<string, any> = {
+                    type: "SCREENER_RESULT",
+                    studyTitle: study.title,
+                    status: currentStatus,
+                    answers: {
+                        ...answers,
+                        // Flatten computed fields for readability in admin email
+                        _ageProvided: answers.age,
+                        _locationProvided: answers.location,
+                        _participatedRecently: participatedRecently ? "Yes" : "No",
+                        _computedResult: currentStatus.toUpperCase(),
+                    },
+                };
+
+                // Only add email field if we have one (schema requires valid email)
+                if (participantEmail) {
+                    notifyBody.email = participantEmail;
+                } else {
+                    // Guest without email — use a placeholder so admin still gets alerted
+                    notifyBody.email = "guest@no-email.musbresearch.com";
+                }
+
+                if (participantName) {
+                    notifyBody.participantName = participantName;
+                }
 
                 const response = await fetch("/api/notify", {
                     method: "POST",
                     headers: { "Content-Type": "application/json" },
-                    body: JSON.stringify({
-                        email: effectiveEmail,
-                        type: "SCREENER_RESULT",
-                        studyTitle: study.title,
-                        status: currentStatus,
-                        answers: answers // Send all form data to the notify API
-                    })
+                    body: JSON.stringify(notifyBody),
                 });
 
                 const result = await response.json();
-                console.log("NOTIFY API RESULT:", result);
+                console.log("[SCREENER] Notify API result:", result);
+
                 if (!response.ok) {
-                    console.error("NOTIFY API FAILED:", result);
+                    console.error("[SCREENER] Notify API HTTP error:", response.status, result);
                 }
-            } else {
-                console.warn("ABORTING NOTIFY - NO EMAIL FOUND!"); // DEBUG
+            } catch (notifyErr) {
+                // Never block the UI if email fails
+                console.error("[SCREENER] Notify API call threw:", notifyErr);
             }
 
-            // If logged in, we could sync this to backend
+            // If logged in, sync screener result to backend participant profile
             if (status === "authenticated") {
-                await fetch("/api/proxy/participants/screener", {
+                fetch("/api/proxy/participants/screener", {
                     method: "POST",
                     headers: { "Content-Type": "application/json" },
                     body: JSON.stringify({
                         studyId: study.id,
                         responses: answers,
-                        status: eligibilityStatus
-                    })
+                        status: currentStatus,
+                    }),
                 }).catch(() => { });
             }
         } catch (error) {
-            console.error("Screening error:", error);
-            setEligibilityStatus("maybe"); // fallback
+            console.error("[SCREENER] Eligibility calculation error:", error);
+            setEligibilityStatus("maybe"); // safe fallback
         } finally {
             setIsRegistering(false);
         }

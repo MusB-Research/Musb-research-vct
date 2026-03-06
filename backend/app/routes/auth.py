@@ -24,9 +24,9 @@ from app.utils.email import send_email_notification
 router = APIRouter(prefix="/api/auth", tags=["Authentication"])
 
 
-@router.post("/register", response_model=UserOut, status_code=status.HTTP_201_CREATED)
+@router.post("/register", response_model=Token, status_code=status.HTTP_201_CREATED)
 async def register(request: Request, user_in: UserCreate, db=Depends(get_db)):
-    """Register a new participant account."""
+    """Register a new participant account and return an access token immediately."""
     # Rate limiting: max 3 registration attempts per hour
     await rate_limit_check(request, "/api/auth/register")
 
@@ -77,33 +77,46 @@ async def register(request: Request, user_in: UserCreate, db=Depends(get_db)):
     result = await db["users"].insert_one(user_doc)
     created = await db["users"].find_one({"_id": result.inserted_id})
 
-    # Auto-create participant profile
-    await db["participants"].insert_one({
-        "userId": str(result.inserted_id),
-        "status": "LEAD",
-        "timezone": "UTC",
-        "createdAt": now,
-        "updatedAt": now,
+    import asyncio
+    async def _create_profile():
+        await db["participants"].insert_one({
+            "userId": str(result.inserted_id),
+            "status": "LEAD",
+            "timezone": "UTC",
+            "createdAt": now,
+            "updatedAt": now,
+        })
+    async def _audit():
+        await log_audit_event(
+            db=db,
+            user_id=str(result.inserted_id),
+            action="REGISTER",
+            resource="System:Auth",
+            details="New participant account created",
+            request=request
+        )
+    # Run participant profile creation + audit log in parallel (non-blocking)
+    asyncio.create_task(_create_profile())
+    asyncio.create_task(_audit())
+
+    # Return a token immediately so the frontend can log the user in right away
+    token = create_access_token(data={
+        "sub": str(result.inserted_id),
+        "email": user_in.email,
+        "role": "PARTICIPANT",
+        "name": user_in.name,
+        "modules": get_modules_for_role("PARTICIPANT"),
     })
 
-    # HIPAA Audit: Log successful registration
-    await log_audit_event(
-        db=db,
-        user_id=str(created["_id"]),
-        action="REGISTER",
-        resource="System:Auth",
-        details="New participant account created",
-        request=request
+    return Token(
+        access_token=token,
+        token_type="bearer",
+        role="PARTICIPANT",
+        id=str(result.inserted_id),
+        name=user_in.name,
+        email=user_in.email,
     )
 
-    return UserOut(
-        id=str(created["_id"]),
-        name=decrypt_data(created.get("name")),
-        email=created["email"],
-        role=created["role"],
-        createdAt=created["createdAt"],
-        deviceFingerprint=created.get("deviceFingerprint")
-    )
 @router.post("/login", response_model=Token)
 async def login(request: Request, form_data: OAuth2PasswordRequestForm = Depends(), db=Depends(get_db)):
     """Login with email and password, returns a JWT access token."""
@@ -133,6 +146,7 @@ async def login(request: Request, form_data: OAuth2PasswordRequestForm = Depends
         "sub": str(user["_id"]),
         "email": user["email"],
         "role": user["role"],
+        "name": decrypt_data(user.get("name")),  # Bug fix: include name in token
         "modules": get_modules_for_role(user["role"]),
     })
     
@@ -232,6 +246,17 @@ async def google_upsert(request: Request, body: GoogleUpsertRequest, db=Depends(
                 "updatedAt": now,
             }}
         )
+        # Bug fix: ensure participant profile exists for returning Google users
+        # (profile may have been missing if they were created by an admin import)
+        existing_profile = await db["participants"].find_one({"userId": str(user["_id"])})
+        if not existing_profile:
+            await db["participants"].insert_one({
+                "userId": str(user["_id"]),
+                "status": "LEAD",
+                "timezone": "UTC",
+                "createdAt": now,
+                "updatedAt": now,
+            })
 
     
     # HIPAA Audit: Log Google Login
@@ -326,13 +351,15 @@ async def check_verification(request: Request, body: VerificationCheck, db=Depen
 
     now = datetime.now(timezone.utc)
     
-    # Update verification status in DB if user/participant exists
-    user = await db["users"].find_one({"email": body.identifier})
-    if user:
-        await db["users"].update_one(
-            {"_id": user["_id"]},
-            {"$set": {"emailVerified": now, "updatedAt": now}}
-        )
+    # Bug fix: only update emailVerified for LOGIN/RESET purposes.
+    # For REGISTER, the user doesn't exist yet at verify/check time.
+    if body.purpose in ("LOGIN", "RESET"):
+        user = await db["users"].find_one({"email": body.identifier})
+        if user:
+            await db["users"].update_one(
+                {"_id": user["_id"]},
+                {"$set": {"emailVerified": now, "updatedAt": now}}
+            )
     
     # Check if it's a phone number (identifier doesn't have @)
     if "@" not in body.identifier:

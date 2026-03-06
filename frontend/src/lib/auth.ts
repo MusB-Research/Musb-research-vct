@@ -86,7 +86,7 @@ export const authOptions: NextAuthOptions = {
         }),
     ],
 
-    session: { strategy: "jwt" },
+    session: { strategy: "jwt", maxAge: 30 * 24 * 60 * 60 }, // 30 days
 
     pages: {
         signIn: "/signin",
@@ -130,6 +130,7 @@ export const authOptions: NextAuthOptions = {
         async jwt({ token, user }) {
             if (user) {
                 token.id = user.id;
+                token.name = user.name;
                 // @ts-ignore
                 token.role = user.role;
                 // @ts-ignore

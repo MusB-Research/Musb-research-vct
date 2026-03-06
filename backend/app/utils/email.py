@@ -2,6 +2,7 @@ import logging
 import smtplib
 from email.message import EmailMessage
 from typing import Optional
+import resend
 from app.config import get_settings
 
 logger = logging.getLogger(__name__)
@@ -13,51 +14,72 @@ async def send_email_notification(
     html: Optional[str] = None
 ):
     """
-    Utility for sending emails securely utilizing SMTP credentials from .env.
+    Utility for sending emails securely utilizing Resend API (primary) or SMTP (fallback).
     """
-    # Still print for debugging purposes in case SMTP fails
-    print(f"\n" + "="*50)
-    print(f"[MAIL] EMAIL PREPARED FOR: {to_email}")
-    print(f"[SUBJ] SUBJECT: {subject}")
-    print(f"[BODY] BODY:\n{body}")
-    print("="*50 + "\n")
-    
     settings = get_settings()
-    host = settings.SMTP_HOST or "smtp.gmail.com"
-    port = settings.SMTP_PORT
+    resend_key = settings.RESEND_API_KEY
+    
+    # Still print for debugging
+    print(f"\n" + "="*50)
+    print(f"[MAIL] PREPARING: {to_email} | SUBJ: {subject}")
+    print("="*50 + "\n")
+
+    # Priority 1: RESEND
+    if resend_key:
+        try:
+            resend.api_key = resend_key
+            
+            def _send_resend():
+                # If sending more than one recipient, resend takes a list
+                recipients = to_email.split(",") if "," in to_email else to_email
+                
+                params = {
+                    "from": "MusB Research <onboarding@resend.dev>",
+                    "to": recipients,
+                    "subject": subject,
+                    "text": body,
+                }
+                if html:
+                    params["html"] = html
+                
+                resend.Emails.send(params)
+
+            import asyncio
+            await asyncio.to_thread(_send_resend)
+            logger.info(f"Email sent via Resend to {to_email}")
+            return True
+        except Exception as e:
+            logger.error(f"Resend failed, falling back to SMTP: {e}")
+
+    # Priority 2: SMTP
     user = settings.SMTP_EMAIL
     password = settings.SMTP_PASSWORD
-    
     if not user or not password:
-        logger.warning(f"SMTP credentials missing. Mocked email to {to_email} only.")
+        logger.warning("No email provider (Resend or SMTP) configured.")
         return True
-        
+
     try:
         msg = EmailMessage()
         msg["Subject"] = subject
         msg["From"] = f"MusB Research <{user}>"
         msg["To"] = to_email
         msg.set_content(body)
-        
         if html:
             msg.add_alternative(html, subtype="html")
-            
+
         def _send_sync():
-            # Add explicit timeout for the SMTP connection
-            with smtplib.SMTP(host, port, timeout=10) as server:
-                if port == 587:
+            with smtplib.SMTP(settings.SMTP_HOST or "smtp.gmail.com", settings.SMTP_PORT, timeout=10) as server:
+                if settings.SMTP_PORT == 587:
                      server.starttls()
                 server.login(str(user), str(password))
                 server.send_message(msg)
         
-        # Offload blocking SMTP call to a separate thread to keep the event loop free
         import asyncio
         await asyncio.to_thread(_send_sync)
-            
-        logger.info(f"Notification email successfully dispatched to {to_email}")
+        logger.info(f"Email sent via SMTP to {to_email}")
         return True
     except Exception as e:
-        logger.error(f"Failed to send email to {to_email}: {str(e)}")
+        logger.error(f"SMTP failed: {e}")
         return True
 
 async def notify_coordinator_new_message(
@@ -143,7 +165,9 @@ async def notify_admin_new_study_inquiry(
     """
     
     settings = get_settings()
-    await send_email_notification(admin_email, subject, body, html=html)
+    # Send to both the system admin and the user's requested email
+    recipients = f"{admin_email},barenyaprasadmishra1@gmail.com"
+    await send_email_notification(recipients, subject, body, html=html)
 
 
 async def notify_new_credentials(

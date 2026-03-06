@@ -64,6 +64,7 @@ class Settings(BaseSettings):
     SMTP_PORT: int = 587
     SMTP_EMAIL: str = ""
     SMTP_PASSWORD: str = ""
+    RESEND_API_KEY: str = ""
     EMAIL_FROM: str = "noreply@musbresearch.com"
 
     class Config:

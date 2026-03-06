@@ -20,7 +20,7 @@ export default function StudyScreenerPage({ params }: { params: Promise<{ slug: 
     const [registrationComplete, setRegistrationComplete] = useState(false);
 
     useEffect(() => {
-        const studyData = {
+        setStudy({
             slug: slug,
             id: searchParams.get('study') || slug,
             title: searchParams.get('name') || 'Study',
@@ -30,8 +30,7 @@ export default function StudyScreenerPage({ params }: { params: Promise<{ slug: 
             timeCommitment: searchParams.get('commitment') || '',
             condition: searchParams.get('category') || '',
             eligibilityRules: [],
-        };
-        setStudy(studyData);
+        });
 
         // Check if there's a saved eligibility state after login (from session-handling logic)
         const savedState = sessionStorage.getItem(`screenerState_${slug}`);
@@ -44,7 +43,7 @@ export default function StudyScreenerPage({ params }: { params: Promise<{ slug: 
                 }
             } catch (e) { }
         }
-    }, [slug, searchParams]);
+    }, [slug]);
 
     if (status === "loading" || !study) {
         return (

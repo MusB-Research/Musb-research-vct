@@ -95,9 +95,11 @@ def root():
 
 
 @app.get("/api/health", tags=["Root"])
+@app.head("/api/health", tags=["Root"])
 def api_health():
     return {"status": "healthy"}
 
 @app.get("/health", tags=["Root"])
+@app.head("/health", tags=["Root"])
 def health():
     return {"status": "running"}

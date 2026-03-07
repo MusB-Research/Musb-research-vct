@@ -21,7 +21,8 @@ export default function SponsorLoginPage() {
         if (status === "authenticated" && session?.user) {
             const u = session.user as any;
             const s = session as any;
-            if (u.role === "SPONSOR") {
+            const sponsorRoles = ["SPONSOR", "SPONSOR_ADMIN", "STUDY_MANAGER", "VIEWER"];
+            if (sponsorRoles.includes(u.role)) {
                 if (!s.accessToken) {
                     signOut({ callbackUrl: "https://musbresearchwebsite-1.vercel.app/" });
                     return;
@@ -32,7 +33,7 @@ export default function SponsorLoginPage() {
                         id: u.id || "",
                         name: u.name || u.email,
                         email: u.email,
-                        role: "SPONSOR",
+                        role: u.role, // preserve actual role
                         image: u.image,
                     });
                 }
@@ -67,8 +68,9 @@ export default function SponsorLoginPage() {
 
             const tokenData = await res.json();
             const role: string = tokenData.role?.toUpperCase() || "";
+            const allowedRoles = ["SPONSOR", "SPONSOR_ADMIN", "STUDY_MANAGER", "VIEWER"];
 
-            if (role !== "SPONSOR") {
+            if (!allowedRoles.includes(role)) {
                 setError("Access denied. This portal is for Sponsor accounts only.");
                 setLoading(false);
                 return;
@@ -83,7 +85,7 @@ export default function SponsorLoginPage() {
                 id: user.id || "",
                 name: user.name || email,
                 email: user.email || email,
-                role: "SPONSOR",
+                role: role, // preserve actual role (SPONSOR, SPONSOR_ADMIN, STUDY_MANAGER, VIEWER)
             });
 
             // Also keep NextAuth session for middleware compat — must await before navigation

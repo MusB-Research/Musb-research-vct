@@ -1,6 +1,6 @@
 from datetime import datetime, timezone
 from typing import List
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, status, BackgroundTasks
 from bson import ObjectId
 import logging
 
@@ -33,6 +33,7 @@ def _map_ae(doc: dict) -> AdverseEventOut:
 @router.post("/", response_model=AdverseEventOut, status_code=status.HTTP_201_CREATED)
 async def report_ae(
     body: AdverseEventCreate,
+    background_tasks: BackgroundTasks,
     current_user=Depends(get_current_user),
     db=Depends(get_db)
 ):
@@ -94,12 +95,13 @@ async def report_ae(
 
                             - MUSB Research Safety System
                             """
-                            await send_email_notification(
+                            background_tasks.add_task(
+                                send_email_notification,
                                 coordinator.get("email"),
                                 subject,
                                 email_body
                             )
-                            logger.warning(f"Life-threatening AE alert sent to coordinator for participant {str(participant['_id'])}")
+                            logger.warning(f"Life-threatening AE alert scheduled for coordinator for participant {str(participant['_id'])}")
         except Exception as e:
             logger.error(f"Failed to send life-threatening AE notification: {str(e)}", exc_info=True)
             # Don't fail the API request if notification fails, but log the error

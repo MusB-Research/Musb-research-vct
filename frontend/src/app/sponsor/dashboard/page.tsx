@@ -13,6 +13,7 @@ import { useEffect, useState } from "react";
 import { signOut } from "next-auth/react";
 import { AdminAuth } from "@/lib/portal-auth";
 import { useRef } from "react";
+import TeamManagementTab from "./TeamManagementTab";
 
 // ─── Mock Data ────────────────────────────────────────────────────────────────
 
@@ -108,7 +109,9 @@ export default function SponsorDashboard() {
     const portalSession = typeof window !== "undefined" ? AdminAuth.get() : null;
     const sponsorUser = portalSession?.user;
 
-    const [activeTab, setActiveTab] = useState<"overview" | "mystudies" | "participants" | "safety" | "documents" | "reports">("overview");
+    const [activeTab, setActiveTab] = useState<"overview" | "mystudies" | "participants" | "safety" | "documents" | "reports" | "team">("overview");
+    const [isTabDropdownOpen, setIsTabDropdownOpen] = useState(false);
+    const tabDropdownRef = useRef<HTMLDivElement>(null);
     const [stats, setStats] = useState<any>(null);
     const [studies, setStudies] = useState<any[]>([]);
     const [loading, setLoading] = useState(true);
@@ -137,7 +140,7 @@ export default function SponsorDashboard() {
     // ── RBAC Guard ──
     useEffect(() => {
         const session = AdminAuth.get();
-        if (!session || session.user.role !== "SPONSOR") {
+        if (!session || !["SPONSOR", "SPONSOR_ADMIN", "STUDY_MANAGER", "VIEWER"].includes(session.user.role)) {
             router.replace("/sponsor/login");
         }
 
@@ -147,6 +150,9 @@ export default function SponsorDashboard() {
             }
             if (notificationRef.current && !notificationRef.current.contains(event.target as Node)) {
                 setIsNotificationsOpen(false);
+            }
+            if (tabDropdownRef.current && !tabDropdownRef.current.contains(event.target as Node)) {
+                setIsTabDropdownOpen(false);
             }
         };
         document.addEventListener("mousedown", handleClickOutside);
@@ -383,61 +389,107 @@ export default function SponsorDashboard() {
                 </div>
             </header>
 
-            <div className="max-w-7xl mx-auto px-6 py-8">
+            <div className="max-w-7xl mx-auto px-4 sm:px-6 py-6 sm:py-8">
 
                 {/* ── Page Header ── */}
-                <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 mb-8">
+                <div className="flex flex-col gap-4 mb-6 sm:mb-8">
                     <div>
-                        <h1 className="text-3xl font-black text-white italic tracking-tight">Sponsor Dashboard</h1>
+                        <h1 className="text-2xl sm:text-3xl font-black text-white italic tracking-tight">Sponsor Dashboard</h1>
                         <p className="text-slate-500 text-sm mt-1">
                             {sponsorInfo.org} · ID: <span className="text-amber-400 font-bold">{sponsorInfo.sponsorId}</span>
                         </p>
                     </div>
-                    <div className="flex gap-3">
-                        <Link href="/studies" target="_blank" className="flex items-center gap-2 px-4 py-2.5 bg-slate-900 border border-white/10 hover:border-indigo-500/30 text-indigo-400 text-[13px] font-bold uppercase tracking-widest rounded-xl transition-all">
-                            <ExternalLink size={14} /> Visit Public Directory
+                    <div className="flex flex-wrap gap-2 md:gap-3">
+                        <Link href="/studies" target="_blank" className="flex items-center gap-2 px-3 md:px-4 py-2 md:py-2.5 bg-slate-900 border border-white/10 hover:border-indigo-500/30 text-indigo-400 text-[11px] md:text-[13px] font-bold uppercase tracking-widest rounded-xl transition-all">
+                            <ExternalLink size={13} /> Public Directory
                         </Link>
-                        <Link href="/sponsor/dashboard/new-study" className="flex items-center gap-2 px-4 py-2.5 bg-amber-600 hover:bg-amber-500 text-white text-[13px] font-bold uppercase tracking-widest rounded-xl transition-all shadow-lg shadow-amber-600/20">
-                            <FlaskConical size={14} /> Inquire New Study
+                        <Link href="/sponsor/dashboard/new-study" className="flex items-center gap-2 px-3 md:px-4 py-2 md:py-2.5 bg-amber-600 hover:bg-amber-500 text-white text-[11px] md:text-[13px] font-bold uppercase tracking-widest rounded-xl transition-all shadow-lg shadow-amber-600/20">
+                            <FlaskConical size={13} /> Inquire New Study
                         </Link>
                         <button
                             onClick={handleExportReport}
                             disabled={isExporting}
-                            className={`flex items-center gap-2 px-4 py-2.5 bg-slate-900 border border-white/10 hover:border-amber-500/30 text-slate-300 text-[13px] font-bold uppercase tracking-widest rounded-xl transition-all ${isExporting ? 'opacity-50 cursor-not-allowed' : ''}`}
+                            className={`flex items-center gap-2 px-3 md:px-4 py-2 md:py-2.5 bg-slate-900 border border-white/10 hover:border-amber-500/30 text-slate-300 text-[11px] md:text-[13px] font-bold uppercase tracking-widest rounded-xl transition-all ${isExporting ? 'opacity-50 cursor-not-allowed' : ''}`}
                         >
-                            {isExporting ? <Loader2 size={14} className="animate-spin" /> : <Download size={14} />}
-                            {isExporting ? "Generating..." : "Export Report"}
+                            {isExporting ? <Loader2 size={13} className="animate-spin" /> : <Download size={13} />}
+                            {isExporting ? "Generating..." : "Export"}
                         </button>
                     </div>
                 </div>
 
                 {/* ── Tabs Navigation ── */}
-                <div className="flex items-center gap-1 mb-8 bg-slate-950/50 p-1 rounded-2xl border border-white/5 overflow-x-auto w-full md:w-fit">
-                    {[
-                        { id: "overview", label: "Overview", icon: PieChart },
-                        { id: "mystudies", label: "My Studies", icon: FlaskConical },
-                        { id: "participants", label: "Participants", icon: Users },
-                        { id: "safety", label: "Safety", icon: Shield },
-                        { id: "documents", label: "Documents", icon: FileText },
-                        { id: "reports", label: "Reports", icon: BarChart3 },
-                    ].map((t) => (
-                        <button
-                            key={t.id}
-                            onClick={() => setActiveTab(t.id as any)}
-                            className={`flex items-center gap-2 px-4 sm:px-6 py-2.5 rounded-xl text-[13px] font-black uppercase tracking-widest transition-all whitespace-nowrap shrink-0 ${activeTab === t.id ? "bg-cyan-600 text-white shadow-lg shadow-cyan-600/20" : "text-slate-500 hover:text-white hover:bg-white/5"}`}
-                        >
-                            <t.icon size={14} /> {t.label}
-                        </button>
-                    ))}
-                </div>
+                {(() => {
+                    const allTabs = [
+                        { id: "overview", label: "Overview", icon: PieChart, show: true },
+                        { id: "mystudies", label: "My Studies", icon: FlaskConical, show: true },
+                        { id: "participants", label: "Participants", icon: Users, show: true },
+                        { id: "safety", label: "Safety", icon: Shield, show: true },
+                        { id: "documents", label: "Documents", icon: FileText, show: true },
+                        { id: "reports", label: "Reports", icon: BarChart3, show: true },
+                        { id: "team", label: "Team", icon: Users, show: sponsorUser?.role === "SPONSOR" || sponsorUser?.role === "SPONSOR_ADMIN" },
+                    ].filter(t => t.show);
+                    const activeTabObj = allTabs.find(t => t.id === activeTab) || allTabs[0];
+                    const ActiveIcon = activeTabObj.icon;
+                    return (
+                        <>
+                            {/* Mobile + Tablet: Dropdown (up to lg / 1024px) */}
+                            <div className="relative lg:hidden mb-5" ref={tabDropdownRef}>
+                                <button
+                                    onClick={() => setIsTabDropdownOpen(prev => !prev)}
+                                    className="w-full flex items-center justify-between gap-3 px-4 py-3 bg-slate-950/70 border border-white/10 rounded-2xl text-[13px] font-black uppercase tracking-widest text-white transition-all"
+                                >
+                                    <span className="flex items-center gap-2">
+                                        <ActiveIcon size={14} className="text-cyan-400" />
+                                        {activeTabObj.label}
+                                    </span>
+                                    <ChevronDown size={16} className={`text-slate-500 transition-transform duration-200 ${isTabDropdownOpen ? 'rotate-180' : ''}`} />
+                                </button>
+                                {isTabDropdownOpen && (
+                                    <div className="absolute top-full left-0 right-0 mt-2 bg-[#0a1120]/98 border border-white/10 rounded-2xl shadow-2xl overflow-hidden z-30 animate-in fade-in zoom-in-95 duration-150">
+                                        {allTabs.map(t => (
+                                            <button
+                                                key={t.id}
+                                                onClick={() => { setActiveTab(t.id as any); setIsTabDropdownOpen(false); }}
+                                                className={`flex items-center gap-3 w-full px-5 py-3.5 text-[13px] font-black uppercase tracking-widest transition-all text-left border-b border-white/5 last:border-0 ${activeTab === t.id
+                                                    ? 'text-cyan-400 bg-cyan-500/10'
+                                                    : 'text-slate-400 hover:text-white hover:bg-white/5'
+                                                    }`}
+                                            >
+                                                <t.icon size={14} />
+                                                {t.label}
+                                                {activeTab === t.id && <span className="ml-auto w-1.5 h-1.5 rounded-full bg-cyan-400" />}
+                                            </button>
+                                        ))}
+                                    </div>
+                                )}
+                            </div>
+
+                            {/* Desktop only (≥1024px): Pill Tabs */}
+                            <div className="hidden lg:flex items-center gap-1 mb-6 lg:mb-8 bg-slate-950/50 p-1 rounded-2xl border border-white/5 overflow-x-auto scrollbar-hide">
+                                {allTabs.map((t) => (
+                                    <button
+                                        key={t.id}
+                                        onClick={() => setActiveTab(t.id as any)}
+                                        className={`flex items-center gap-1.5 px-4 sm:px-5 py-2 sm:py-2.5 rounded-xl text-[11px] sm:text-[13px] font-black uppercase tracking-widest transition-all whitespace-nowrap shrink-0 ${activeTab === t.id
+                                            ? 'bg-cyan-600 text-white shadow-lg shadow-cyan-600/20'
+                                            : 'text-slate-500 hover:text-white hover:bg-white/5'
+                                            }`}
+                                    >
+                                        <t.icon size={13} /> {t.label}
+                                    </button>
+                                ))}
+                            </div>
+                        </>
+                    );
+                })()}
 
                 {/* ═══════════════════════════════════════════════════════
                     OVERVIEW TAB
                 ═══════════════════════════════════════════════════════ */}
                 {activeTab === "overview" && (
-                    <div className="space-y-8 animate-in fade-in duration-500">
-                        {/* KPI Grid */}
-                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+                    <div className="space-y-6 sm:space-y-8 animate-in fade-in duration-500">
+                        {/* KPI Grid — 2 cols mobile, 3 cols tablet, 4 cols desktop */}
+                        <div className="grid grid-cols-2 md:grid-cols-2 lg:grid-cols-4 gap-3 md:gap-4">
                             {[
                                 { label: "Active Studies", value: stats?.activeStudies || 0, trend: "+1 this month", icon: FlaskConical, color: "text-amber-400", bg: "bg-amber-500/10" },
                                 { label: "Total Participants", value: stats?.totalParticipants || 0, trend: "Across all protocols", icon: Users, color: "text-cyan-400", bg: "bg-cyan-500/10" },
@@ -977,6 +1029,13 @@ export default function SponsorDashboard() {
                             ))}
                         </div>
                     </div>
+                )}
+
+                {/* ═══════════════════════════════════════════════════════
+                    TEAM MANAGEMENT TAB
+                ═══════════════════════════════════════════════════════ */}
+                {activeTab === "team" && (
+                    <TeamManagementTab studies={studies} />
                 )}
             </div>
         </div>

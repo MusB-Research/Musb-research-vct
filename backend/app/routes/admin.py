@@ -1,6 +1,6 @@
 from datetime import datetime, timezone
 from typing import Optional
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, BackgroundTasks
 from bson import ObjectId
 from motor.motor_asyncio import AsyncIOMotorDatabase
 
@@ -133,6 +133,7 @@ class InviteBody(BaseModel):
 @router.post("/invite")
 async def invite_staff(
     body: InviteBody,
+    background_tasks: BackgroundTasks,
     current_user=Depends(require_admin),
     db: AsyncIOMotorDatabase = Depends(get_db),
 ):
@@ -158,6 +159,21 @@ async def invite_staff(
         "updatedAt": now,
     }
     await db["users"].insert_one(doc)
+    
+    from app.utils.email import notify_new_credentials
+    from app.config import get_settings
+    settings = get_settings()
+    login_url = f"{settings.FRONTEND_URL}/sponsor/login" if body.role in ["SPONSOR", "SPONSOR_ADMIN"] else f"{settings.FRONTEND_URL}/coordinator/login" # Adjust based on front-end
+    
+    background_tasks.add_task(
+        notify_new_credentials,
+        user_email=body.email,
+        user_name=body.name or "Team Member",
+        role=body.role,
+        login_url=login_url,
+        password=temp_password
+    )
+    
     return {"message": f"Staff account created for {body.email}", "tempPassword": temp_password}
 
 

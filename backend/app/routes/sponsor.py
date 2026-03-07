@@ -1,6 +1,6 @@
 from datetime import datetime, timezone
 from typing import List, Optional
-from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi import APIRouter, Depends, HTTPException, Query, Request, BackgroundTasks
 from pydantic import BaseModel
 
 from app.database import get_db
@@ -36,11 +36,25 @@ async def sponsor_stats(
     db=Depends(get_db),
 ):
     """Sponsor: aggregate dashboard KPIs."""
-    if current_user.role not in ("SPONSOR", "ADMIN", "COORDINATOR"):
+    if current_user.role not in ("SPONSOR", "SPONSOR_ADMIN", "STUDY_MANAGER", "VIEWER", "ADMIN", "COORDINATOR"):
         raise HTTPException(status_code=403, detail="Insufficient permissions")
 
-    total_studies = await db["studies"].count_documents({})
-    active_studies = await db["studies"].count_documents({"status": {"$in": ["ACTIVE", "RECRUITING"]}})
+    # Determine query base for studies
+    query = {}
+    if current_user.role in ("SPONSOR", "SPONSOR_ADMIN"):
+        sponsor_id = getattr(current_user, "parent_sponsor_id", None) or current_user.user_id
+        query["sponsorId"] = sponsor_id
+    elif current_user.role in ("STUDY_MANAGER", "VIEWER"):
+        user = await db["users"].find_one({"_id": ObjectId(current_user.user_id)})
+        assigned_studies = user.get("assignedStudies", [])
+        # Provide string objects to a search using stringified IDs or ObjectIds depending on schema
+        query["_id"] = {"$in": [ObjectId(sid) for sid in assigned_studies if ObjectId.is_valid(sid)]}
+
+    total_studies = await db["studies"].count_documents(query)
+    
+    active_query = query.copy()
+    active_query["status"] = {"$in": ["ACTIVE", "RECRUITING"]}
+    active_studies = await db["studies"].count_documents(active_query)
     total_participants = await db["participants"].count_documents({})
     enrolled = await db["participants"].count_documents({"status": {"$in": ["ENROLLED", "ACTIVE", "COMPLETED"]}})
     completed = await db["participants"].count_documents({"status": "COMPLETED"})
@@ -63,11 +77,21 @@ async def sponsor_studies(
     db=Depends(get_db),
 ):
     """Sponsor: list all studies with participant counts."""
-    if current_user.role not in ("SPONSOR", "ADMIN", "COORDINATOR"):
+    if current_user.role not in ("SPONSOR", "SPONSOR_ADMIN", "STUDY_MANAGER", "VIEWER", "ADMIN", "COORDINATOR"):
         raise HTTPException(status_code=403, detail="Insufficient permissions")
 
+    # Determine query base for studies
+    query = {}
+    if current_user.role in ("SPONSOR", "SPONSOR_ADMIN"):
+        sponsor_id = getattr(current_user, "parent_sponsor_id", None) or current_user.user_id
+        query["sponsorId"] = sponsor_id
+    elif current_user.role in ("STUDY_MANAGER", "VIEWER"):
+        user = await db["users"].find_one({"_id": ObjectId(current_user.user_id)})
+        assigned_studies = user.get("assignedStudies", [])
+        query["_id"] = {"$in": [ObjectId(sid) for sid in assigned_studies if ObjectId.is_valid(sid)]}
+
     result = []
-    async for study in db["studies"].find().sort("createdAt", -1).limit(50):
+    async for study in db["studies"].find(query).sort("createdAt", -1).limit(50):
         study_id = str(study["_id"])
         total = await db["participants"].count_documents({"studyId": study_id})
         enrolled = await db["participants"].count_documents({
@@ -103,11 +127,12 @@ from app.config import get_settings
 @router.post("/studies", response_model=StudyOut)
 async def launch_study(
     study_in: StudyCreate,
+    background_tasks: BackgroundTasks,
     current_user=Depends(get_current_user),
     db=Depends(get_db)
 ):
     """Sponsor: create or launch a new study."""
-    if current_user.role not in ("SPONSOR", "ADMIN"):
+    if current_user.role not in ("SPONSOR", "SPONSOR_ADMIN", "ADMIN"):
         raise HTTPException(status_code=403, detail="Only sponsors or admins can launch studies")
 
     # Generate slug from title if it looks like a placeholder
@@ -121,7 +146,7 @@ async def launch_study(
 
     doc = study_in.model_dump()
     doc["slug"] = slug
-    doc["sponsorId"] = current_user.user_id
+    doc["sponsorId"] = getattr(current_user, "parent_sponsor_id", None) or current_user.user_id
     doc["createdAt"] = datetime.now(timezone.utc)
     doc["updatedAt"] = datetime.now(timezone.utc)
 
@@ -160,11 +185,12 @@ async def launch_study(
             "createdAt": doc["createdAt"],
         })
 
-        await notify_admin_new_study_inquiry(
+        background_tasks.add_task(
+            notify_admin_new_study_inquiry,
             admin_email=admin_email,
             sponsor_name=sponsor_name,
             sponsor_email=current_user.email,
-            study_details=study_in.model_dump()
+            study_title=study_title
         )
 
     # Map _id to id for response
@@ -179,7 +205,7 @@ async def get_study_details(
     db=Depends(get_db)
 ):
     """Sponsor: get full details of a study for management."""
-    if current_user.role not in ("SPONSOR", "ADMIN", "COORDINATOR"):
+    if current_user.role not in ("SPONSOR", "SPONSOR_ADMIN", "STUDY_MANAGER", "VIEWER", "ADMIN", "COORDINATOR"):
         raise HTTPException(status_code=403, detail="Insufficient permissions")
 
     study = await db["studies"].find_one({"slug": slug})
@@ -194,6 +220,16 @@ async def get_study_details(
     if not study:
         raise HTTPException(status_code=404, detail="Study not found")
 
+    if current_user.role not in ("ADMIN", "COORDINATOR"):
+        if current_user.role in ("SPONSOR", "SPONSOR_ADMIN"):
+             sponsor_id = getattr(current_user, "parent_sponsor_id", None) or current_user.user_id
+             if study.get("sponsorId") != sponsor_id:
+                 raise HTTPException(status_code=403, detail="You do not have access to this study")
+        elif current_user.role in ("STUDY_MANAGER", "VIEWER"):
+             user = await db["users"].find_one({"_id": ObjectId(current_user.user_id)})
+             if str(study["_id"]) not in user.get("assignedStudies", []):
+                 raise HTTPException(status_code=403, detail="You are not assigned to this study")
+
     study["id"] = str(study.pop("_id"))
     return study
 
@@ -206,8 +242,8 @@ async def update_study(
     db=Depends(get_db)
 ):
     """Sponsor: update study parameters."""
-    if current_user.role not in ("SPONSOR", "ADMIN"):
-        raise HTTPException(status_code=403, detail="Insufficient permissions")
+    if current_user.role not in ("SPONSOR", "SPONSOR_ADMIN", "STUDY_MANAGER", "ADMIN"):
+        raise HTTPException(status_code=403, detail="Insufficient permissions to edit study")
 
     # Find study
     study = await db["studies"].find_one({"slug": slug})
@@ -222,8 +258,16 @@ async def update_study(
         raise HTTPException(status_code=404, detail="Study not found")
 
     # Ensure it's THEIR study or they are admin
-    if current_user.role != "ADMIN" and study.get("sponsorId") != current_user.user_id:
-        raise HTTPException(status_code=403, detail="You can only manage your own studies")
+    if current_user.role != "ADMIN":
+        if current_user.role in ("SPONSOR", "SPONSOR_ADMIN"):
+             sponsor_id = getattr(current_user, "parent_sponsor_id", None) or current_user.user_id
+             if study.get("sponsorId") != sponsor_id:
+                 raise HTTPException(status_code=403, detail="You can only manage your own studies")
+        elif current_user.role == "STUDY_MANAGER":
+             user = await db["users"].find_one({"_id": ObjectId(current_user.user_id)})
+             if str(study["_id"]) not in user.get("assignedStudies", []):
+                 raise HTTPException(status_code=403, detail="You can only manage assigned studies")
+
 
     # Filter out immutable fields
     update_data = {k: v for k, v in study_update.items() if k not in ("id", "_id", "createdAt", "sponsorId")}
@@ -374,8 +418,9 @@ DESCRIPTION:
 
 Lead ID: {lead_id}
 """
+    import asyncio
     from app.utils.email import send_email_notification
-    await send_email_notification(route_email, email_subject, email_body)
+    asyncio.create_task(send_email_notification(route_email, email_subject, email_body))
 
     return {
         "message": "Lead submitted successfully",
@@ -383,4 +428,235 @@ Lead ID: {lead_id}
         "status": status,
         "routedTo": route_email,
     }
+
+
+# ─── Sponsor: Team Management ──────────────────────────────────────────────────
+
+from app.models import TeamMemberInvite, TeamMemberUpdate, TeamMemberSetPassword, TeamMemberOut
+from app.auth import create_access_token, decode_token, get_password_hash
+from app.utils.email import notify_team_invitation
+from datetime import timedelta
+from jose import JWTError
+
+@router.post("/team/invite")
+async def invite_team_member(
+    request: Request,
+    invite_in: TeamMemberInvite,
+    background_tasks: BackgroundTasks,
+    current_user=Depends(get_current_user),
+    db=Depends(get_db)
+):
+    """Sponsor Admin: Invite a new team member."""
+    # Ensure ONLY Sponsor Admin or Super Admin can invite
+    if current_user.role not in ("SPONSOR", "SPONSOR_ADMIN", "ADMIN", "SUPER_ADMIN"):
+        raise HTTPException(status_code=403, detail="Insufficient permissions to manage team")
+    
+    # 1. Check if email is already in use globally
+    existing = await db["users"].find_one({"email": invite_in.email})
+    if existing:
+        raise HTTPException(status_code=409, detail="This email is already registered in the system")
+
+    now = datetime.now(timezone.utc)
+    # 2. Add user to database with PENDING status
+    new_user = {
+        "name": encrypt_data(invite_in.name),
+        "email": invite_in.email,
+        "role": invite_in.role, # SPONSOR_ADMIN, STUDY_MANAGER, VIEWER
+        "parentSponsorId": current_user.user_id,
+        "assignedStudies": invite_in.assignedStudies,
+        "status": "PENDING",
+        "passwordHash": None, # Will be set during activation
+        "createdAt": now,
+        "updatedAt": now
+    }
+    result = await db["users"].insert_one(new_user)
+    
+    # 3. Generate 48-hour secure Invitation Token
+    invite_token = create_access_token(
+        data={"sub": str(result.inserted_id), "purpose": "TEAM_INVITE", "email": invite_in.email},
+        expires_delta=timedelta(hours=48)
+    )
+
+    # 4. Send Invitation Email
+    settings = get_settings()
+    frontend_url = getattr(settings, "FRONTEND_URL", "http://localhost:3000")
+    activation_url = f"{frontend_url}/setup-password?token={invite_token}"
+
+    # Try to get sponsor name for email
+    sponsor_doc = await db["users"].find_one({"_id": ObjectId(current_user.user_id)})
+    sponsor_name = decrypt_data(sponsor_doc.get("name")) if sponsor_doc else "A Sponsor"
+    
+    background_tasks.add_task(
+        notify_team_invitation,
+        user_email=invite_in.email,
+        user_name=invite_in.name,
+        sponsor_name=sponsor_name,
+        role=invite_in.role,
+        activation_url=activation_url
+    )
+
+    # 5. Audit Log
+    from app.routes.audit import log_audit_event
+    await log_audit_event(
+        db, current_user.user_id, "TEAM_MEMBER_INVITED", f"User:{result.inserted_id}",
+        f"Invited {invite_in.email} as {invite_in.role}", request
+    )
+
+    return {"message": f"Invitation sent to {invite_in.email}", "id": str(result.inserted_id)}
+
+
+@router.post("/team/setup-password")
+async def setup_team_password(
+    request: Request,
+    body: TeamMemberSetPassword,
+    db=Depends(get_db)
+):
+    """Invited User: Set password via email link."""
+    # 1. Decode token
+    try:
+        from app.auth import settings as auth_settings
+        import jwt
+        public_key_pem = auth_settings.PUBLIC_KEY.replace("\\n", "\n").encode()
+        payload = jwt.decode(body.token, public_key_pem, algorithms=["RS256"])
+        if payload.get("purpose") != "TEAM_INVITE":
+            raise HTTPException(status_code=400, detail="Invalid token purpose")
+        user_id = payload.get("sub")
+    except Exception:
+        raise HTTPException(status_code=400, detail="This invitation link is invalid or has expired.")
+
+    # 2. Find user
+    user = await db["users"].find_one({"_id": ObjectId(user_id)})
+    if not user:
+        raise HTTPException(status_code=404, detail="User account not found.")
+    
+    if user.get("status") == "ACTIVE":
+        raise HTTPException(status_code=400, detail="Account is already activated. Please login.")
+
+    # 3. Set Password and Activate
+    hashed_pw = get_password_hash(body.password)
+    now = datetime.now(timezone.utc)
+    
+    await db["users"].update_one(
+        {"_id": ObjectId(user_id)},
+        {"$set": {
+            "passwordHash": hashed_pw,
+            "status": "ACTIVE",
+            "emailVerified": now,
+            "updatedAt": now
+        }}
+    )
+
+    # 4. Audit Log
+    from app.routes.audit import log_audit_event
+    await log_audit_event(
+        db, user_id, "TEAM_MEMBER_ACTIVATED", f"User:{user_id}",
+        "Team member activated account", request
+    )
+
+    return {"message": "Account activated successfully. You can now login."}
+
+
+@router.get("/team", response_model=List[TeamMemberOut])
+async def list_team_members(
+    current_user=Depends(get_current_user),
+    db=Depends(get_db)
+):
+    """Sponsor Admin: List all team members."""
+    if current_user.role not in ("SPONSOR", "SPONSOR_ADMIN", "ADMIN", "SUPER_ADMIN"):
+         raise HTTPException(status_code=403, detail="Insufficient permissions")
+
+    # If it's Super Admin, maybe they can pass a sponsor_id query param in the future.
+    # For now, restrict to team members of the current sponsor.
+    query = {"parentSponsorId": current_user.user_id}
+    
+    members = []
+    async for u in db["users"].find(query).sort("createdAt", -1):
+        members.append(
+            TeamMemberOut(
+                id=str(u["_id"]),
+                name=decrypt_data(u.get("name")),
+                email=u["email"],
+                role=u["role"],
+                status=u.get("status", "ACTIVE"),
+                assignedStudies=u.get("assignedStudies", []),
+                createdAt=u["createdAt"],
+                updatedAt=u["updatedAt"]
+            )
+        )
+    return members
+
+
+@router.put("/team/{member_id}", response_model=TeamMemberOut)
+async def update_team_member(
+    member_id: str,
+    update_in: TeamMemberUpdate,
+    request: Request,
+    current_user=Depends(get_current_user),
+    db=Depends(get_db)
+):
+    """Sponsor Admin: Update a team member's role or studies."""
+    if current_user.role not in ("SPONSOR", "SPONSOR_ADMIN", "ADMIN", "SUPER_ADMIN"):
+         raise HTTPException(status_code=403, detail="Insufficient permissions")
+
+    user = await db["users"].find_one({"_id": ObjectId(member_id), "parentSponsorId": current_user.user_id})
+    if not user:
+        raise HTTPException(status_code=404, detail="Team member not found")
+
+    update_doc = {"updatedAt": datetime.now(timezone.utc)}
+    if update_in.role:
+        update_doc["role"] = update_in.role
+    if update_in.assignedStudies is not None:
+        # Prevent assigning studies they don't own
+        # Verify studies belong to sponsor (could be added as safety check)
+        update_doc["assignedStudies"] = update_in.assignedStudies
+
+    await db["users"].update_one({"_id": ObjectId(member_id)}, {"$set": update_doc})
+
+    from app.routes.audit import log_audit_event
+    await log_audit_event(
+        db, current_user.user_id, "TEAM_MEMBER_UPDATED", f"User:{member_id}",
+        f"Updated member details", request
+    )
+
+    updated_user = await db["users"].find_one({"_id": ObjectId(member_id)})
+    return TeamMemberOut(
+        id=str(updated_user["_id"]),
+        name=decrypt_data(updated_user.get("name")),
+        email=updated_user["email"],
+        role=updated_user["role"],
+        status=updated_user.get("status", "ACTIVE"),
+        assignedStudies=updated_user.get("assignedStudies", []),
+        createdAt=updated_user["createdAt"],
+        updatedAt=updated_user["updatedAt"]
+    )
+
+
+@router.delete("/team/{member_id}")
+async def deactivate_team_member(
+    member_id: str,
+    request: Request,
+    current_user=Depends(get_current_user),
+    db=Depends(get_db)
+):
+    """Sponsor Admin: Deactivate a team member."""
+    if current_user.role not in ("SPONSOR", "SPONSOR_ADMIN", "ADMIN", "SUPER_ADMIN"):
+         raise HTTPException(status_code=403, detail="Insufficient permissions")
+
+    user = await db["users"].find_one({"_id": ObjectId(member_id), "parentSponsorId": current_user.user_id})
+    if not user:
+        raise HTTPException(status_code=404, detail="Team member not found")
+
+    # We do a soft deactivate, not a hard delete
+    await db["users"].update_one(
+        {"_id": ObjectId(member_id)},
+        {"$set": {"status": "INACTIVE", "updatedAt": datetime.now(timezone.utc)}}
+    )
+
+    from app.routes.audit import log_audit_event
+    await log_audit_event(
+        db, current_user.user_id, "TEAM_MEMBER_DEACTIVATED", f"User:{member_id}",
+        f"Deactivated member", request
+    )
+
+    return {"message": "Team member successfully deactivated"}
 

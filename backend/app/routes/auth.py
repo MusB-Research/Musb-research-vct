@@ -1,5 +1,5 @@
 from datetime import datetime, timezone
-from fastapi import APIRouter, Depends, HTTPException, status, Request
+from fastapi import APIRouter, Depends, HTTPException, status, Request, BackgroundTasks
 from fastapi.security import OAuth2PasswordRequestForm
 from pydantic import BaseModel
 from typing import Optional
@@ -148,6 +148,7 @@ async def login(request: Request, form_data: OAuth2PasswordRequestForm = Depends
         "role": user["role"],
         "name": decrypt_data(user.get("name")),  # Bug fix: include name in token
         "modules": get_modules_for_role(user["role"]),
+        "parent_sponsor_id": user.get("parentSponsorId"),
     })
     
     # HIPAA Audit: Log only successful login to avoid DB bloat
@@ -166,7 +167,8 @@ async def login(request: Request, form_data: OAuth2PasswordRequestForm = Depends
         role=user["role"],
         id=str(user["_id"]),
         name=decrypt_data(user.get("name")),
-        email=user["email"]
+        email=user["email"],
+        parent_sponsor_id=user.get("parentSponsorId")
     )
 
 
@@ -276,6 +278,7 @@ async def google_upsert(request: Request, body: GoogleUpsertRequest, db=Depends(
             "email": user["email"],
             "role": user.get("role", "PARTICIPANT"),
             "modules": get_modules_for_role(user.get("role", "PARTICIPANT")),
+            "parent_sponsor_id": user.get("parentSponsorId"),
         }
     )
 
@@ -290,7 +293,7 @@ async def google_upsert(request: Request, body: GoogleUpsertRequest, db=Depends(
 # ─── Identity Verification (OTP) ──────────────────────────────────────────────
 
 @router.post("/verify/send")
-async def send_verification(request: Request, body: VerificationRequest, db=Depends(get_db)):
+async def send_verification(request: Request, body: VerificationRequest, background_tasks: BackgroundTasks, db=Depends(get_db)):
     """Send a verification code via Email or Phone."""
     # Rate limiting: max 5 OTP sends per hour
     await rate_limit_check(request, "/api/auth/verify/send")
@@ -323,7 +326,7 @@ async def send_verification(request: Request, body: VerificationRequest, db=Depe
     if channel == "Email":
         subject = f"Your MUSB {body.purpose.title()} Verification Code"
         email_body = f"Hello,\n\nYour 6-digit verification code for {body.purpose.lower()} is: {otp}\n\nPlease enter this code to securely proceed. This code will expire in 10 minutes.\n\nBest,\nThe MUSB Research Team"
-        await send_email_notification(body.identifier, subject, email_body)
+        background_tasks.add_task(send_email_notification, body.identifier, subject, email_body)
     # Phone SMS sending can be implemented here when SMS provider is configured
     
     await log_audit_event(
@@ -401,11 +404,14 @@ async def update_password(
             detail="Accounts managed via Google cannot update passwords directly. Please use Google Account settings."
         )
 
-    # Only Participants can manage their own credentials
-    if user.get("role") != "PARTICIPANT":
+    # Block non-participant changing password via this public endpoint
+    # Staff accounts (admin-managed roles) should contact admin to reset
+    # Allow: PARTICIPANT. Block: all staff roles (they use admin-invite flow)
+    staff_roles = {"ADMIN", "SUPER_ADMIN", "COORDINATOR", "PI", "DATA_MANAGER", "SPONSOR", "SPONSOR_ADMIN", "STUDY_MANAGER", "VIEWER"}
+    if user.get("role") in staff_roles:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
-            detail="Password management is restricted for your role. Please contact the administrator."
+            detail="Staff password management must be handled by system administrator."
         )
 
     # Verify Current Password
@@ -460,11 +466,12 @@ async def reset_password(request: Request, body: PasswordResetRequest, db=Depend
     if not user:
         raise HTTPException(status_code=404, detail="User account not found.")
 
-    # Only Participants can reset their own credentials
-    if user.get("role") != "PARTICIPANT":
+    # Only Participants can reset password via OTP (staff accounts use admin-managed flows)
+    staff_roles = {"ADMIN", "SUPER_ADMIN", "COORDINATOR", "PI", "DATA_MANAGER", "SPONSOR", "SPONSOR_ADMIN", "STUDY_MANAGER", "VIEWER"}
+    if user.get("role") in staff_roles:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
-            detail="Password reset is restricted for your role. Please contact the administrator."
+            detail="Password reset for staff accounts must be handled by your system administrator."
         )
         
     # 3. Hash new password and update

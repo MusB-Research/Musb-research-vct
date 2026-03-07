@@ -35,6 +35,9 @@ class UserRole:
     PI = "PI"
     DATA_MANAGER = "DATA_MANAGER"
     SPONSOR = "SPONSOR"
+    SPONSOR_ADMIN = "SPONSOR_ADMIN"
+    STUDY_MANAGER = "STUDY_MANAGER"
+    VIEWER = "VIEWER"
     ADMIN = "ADMIN"
     SUPER_ADMIN = "SUPER_ADMIN"
 
@@ -44,6 +47,12 @@ class UserBase(BaseModel):
     email: str
     role: str = UserRole.PARTICIPANT
     deviceFingerprint: Optional[str] = None
+    
+    # Sponsor Team Management Fields
+    parentSponsorId: Optional[str] = None # ID of the Sponsor Admin they belong to
+    assignedStudies: list[str] = [] # Array of study IDs for access control
+    status: str = "ACTIVE" # ACTIVE, INACTIVE, PENDING
+
 
     class Config:
         populate_by_name = True
@@ -350,6 +359,8 @@ class Token(BaseModel):
     id: str  # Added to skip /me call
     name: Optional[str] = None  # Added to skip /me call
     email: str  # Added to skip /me call
+    parent_sponsor_id: Optional[str] = None
+
 
 
 class TokenData(BaseModel):
@@ -357,6 +368,8 @@ class TokenData(BaseModel):
     email: Optional[str] = None
     role: Optional[str] = None
     modules: Optional[list] = []
+    parent_sponsor_id: Optional[str] = None
+
 
 
 # ---------------------------------------------------------------------------
@@ -509,3 +522,31 @@ class NotificationOut(NotificationBase):
         populate_by_name = True
         arbitrary_types_allowed = True
         json_encoders = {ObjectId: str}
+
+# ---------------------------------------------------------------------------
+# Sponsor Team Management
+# ---------------------------------------------------------------------------
+
+class TeamMemberInvite(BaseModel):
+    name: str
+    email: str
+    role: str # SPONSOR_ADMIN, STUDY_MANAGER, VIEWER
+    assignedStudies: list[str] = []
+
+class TeamMemberUpdate(BaseModel):
+    role: Optional[str] = None
+    assignedStudies: Optional[list[str]] = None
+
+class TeamMemberSetPassword(BaseModel):
+    token: str
+    password: str
+
+class TeamMemberOut(BaseModel):
+    id: str
+    name: Optional[str] = None
+    email: str
+    role: str
+    status: str
+    assignedStudies: list[str] = []
+    createdAt: datetime
+    updatedAt: datetime

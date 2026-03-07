@@ -69,7 +69,7 @@ async def list_studies(
     db=Depends(get_db)
 ):
     """Public endpoint: list all publicly visible studies."""
-    query: dict = {"status": {"$in": ["RECRUITING", "ACTIVE"]}}
+    query: dict = {"status": {"$in": ["ACTIVE"]}}
     if status:
         query["status"] = status
     if condition:
@@ -122,6 +122,8 @@ async def update_study(
     db=Depends(get_db)
 ):
     """Admin only: Update a study."""
+    if not ObjectId.is_valid(study_id):
+        raise HTTPException(status_code=400, detail="Invalid study ID")
     updates["updatedAt"] = datetime.now(timezone.utc)
     await db["studies"].update_one(
         {"_id": ObjectId(study_id)},
@@ -139,8 +141,12 @@ async def delete_study(
     current_user=Depends(require_admin),
     db=Depends(get_db)
 ):
-    """Admin only: Delete (close) a study."""
-    await db["studies"].update_one(
+    """Admin only: Soft-delete (close) a study."""
+    if not ObjectId.is_valid(study_id):
+        raise HTTPException(status_code=400, detail="Invalid study ID")
+    result = await db["studies"].update_one(
         {"_id": ObjectId(study_id)},
         {"$set": {"status": "CLOSED", "updatedAt": datetime.now(timezone.utc)}}
     )
+    if result.matched_count == 0:
+        raise HTTPException(status_code=404, detail="Study not found")

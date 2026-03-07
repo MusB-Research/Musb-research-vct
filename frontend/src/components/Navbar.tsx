@@ -79,7 +79,7 @@ export default function Navbar() {
             <div className="w-full max-w-[1550px] mx-auto px-6 md:px-12 lg:px-16 flex items-center justify-between gap-4">
 
                 <div className="shrink-0 flex items-center">
-                    <Link href="/" className="group bg-white px-8 py-3.5 rounded-2xl shadow-[0_4px_20px_rgba(0,0,0,0.03)] hover:shadow-[0_8px_30px_rgba(0,0,0,0.08)] border border-slate-100 flex items-center transition-all duration-300 ease-in-out hover:scale-105 active:scale-95">
+                    <Link href="/" className="group bg-white px-4 sm:px-8 py-2 sm:py-3.5 rounded-xl sm:rounded-2xl shadow-[0_4px_20px_rgba(0,0,0,0.03)] hover:shadow-[0_8px_30px_rgba(0,0,0,0.08)] border border-slate-100 flex items-center transition-all duration-300 ease-in-out hover:scale-105 active:scale-95">
                         <Image
                             src="/musb research.png"
                             alt="MUSB Research"
@@ -141,14 +141,14 @@ export default function Navbar() {
                 <div className="flex items-center gap-3">
                     <Link
                         href="/studies"
-                        className="bg-cyan-500 text-slate-900 px-8 py-3 rounded-xl text-[12px] font-black tracking-[0.1em] flex items-center gap-2 shadow-[0_4px_15px_rgba(6,182,212,0.15)] hover:bg-white border border-transparent hover:border-slate-100 transition-all duration-300 transform hover:-translate-y-0.5 active:scale-95 whitespace-nowrap"
+                        className="hidden xl:flex bg-cyan-500 text-slate-900 px-8 py-3 rounded-xl text-[12px] font-black tracking-[0.1em] items-center gap-2 shadow-[0_4px_15px_rgba(6,182,212,0.15)] hover:bg-white border border-transparent hover:border-slate-100 transition-all duration-300 transform hover:-translate-y-0.5 active:scale-95 whitespace-nowrap"
                     >
                         JOIN A STUDY
                         <ArrowRight size={18} className="stroke-[3px]" />
                     </Link>
 
                     {status === "authenticated" ? (
-                        <div className="flex items-center gap-3 ml-2 pl-4 border-l border-slate-200">
+                        <div className="hidden xl:flex items-center gap-3 ml-2 pl-4 border-l border-slate-200">
                             <Link href={portalLink} className="flex items-center gap-3 group">
                                 <div className="text-right hidden sm:block">
                                     <p className="text-[10px] uppercase font-black text-slate-400 leading-none mb-1">DASHBOARD</p>
@@ -166,7 +166,7 @@ export default function Navbar() {
                     ) : (
                         <Link
                             href="/signin"
-                            className="bg-slate-900 text-white px-8 py-3 rounded-xl text-[12px] font-black tracking-[0.1em] flex items-center gap-2 hover:bg-cyan-500 hover:text-slate-900 transition-all duration-300 transform hover:-translate-y-0.5 active:scale-95 whitespace-nowrap"
+                            className="hidden xl:flex bg-slate-900 text-white px-8 py-3 rounded-xl text-[12px] font-black tracking-[0.1em] items-center gap-2 hover:bg-cyan-500 hover:text-slate-900 transition-all duration-300 transform hover:-translate-y-0.5 active:scale-95 whitespace-nowrap"
                         >
                             <LogIn size={18} className="stroke-[3px]" />
                             SIGN IN

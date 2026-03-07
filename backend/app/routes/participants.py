@@ -1,6 +1,6 @@
 from datetime import datetime, timezone
 from typing import List, Optional
-from fastapi import APIRouter, Depends, HTTPException, status, Query, Request
+from fastapi import APIRouter, Depends, HTTPException, status, Query, Request, BackgroundTasks
 from bson import ObjectId
 import json
 
@@ -105,18 +105,6 @@ async def get_my_report(
     }
 
 
-@router.post("/me/enroll")
-async def enroll_me(
-    current_user=Depends(get_current_user),
-    db=Depends(get_db)
-):
-    """
-    Finalize enrollment for the current authenticated participant.
-    """
-    p = await db["participants"].find_one({"userId": current_user.user_id})
-    if not p:
-        raise HTTPException(status_code=404, detail="Participant profile not found")
-    return await _enroll_logic(p, db)
 
 
 @router.post("/me/withdraw")
@@ -287,6 +275,7 @@ async def update_participant_status(
 @router.post("/screener", response_model=ScreenerOut, status_code=status.HTTP_201_CREATED)
 async def submit_screener(
     body: ScreenerSubmit,
+    background_tasks: BackgroundTasks,
     current_user=Depends(get_current_user),
     db=Depends(get_db)
 ):
@@ -321,6 +310,18 @@ async def submit_screener(
         {"_id": participant["_id"]},
         {"$set": {"status": new_status, "studyId": body.studyId, "updatedAt": now}}
     )
+
+    # Email Notification — look up name from the users collection (not participant doc)
+    from app.utils.email import send_email_notification
+    subject = "MUSB Research: Study Screener Results"
+    user_doc = await db["users"].find_one({"_id": ObjectId(current_user.user_id)}) if ObjectId.is_valid(current_user.user_id) else None
+    first_name = decrypt_data(user_doc.get("name")) if user_doc and user_doc.get("name") else "Participant"
+    if is_eligible:
+        body_text = f"Hello {first_name},\n\nGreat news! Based on your screener responses, you appear to be eligible to proceed for this study.\nPlease log in to the portal to review the consent form and complete your enrollment.\n\nThank you,\nMUSB Research Team"
+    else:
+        body_text = f"Hello {first_name},\n\nThank you for completing the screener.\nAt this time, it appears you do not meet all the eligibility criteria for this specific study. However, we have saved your profile and will reach out when a future study matches your criteria.\n\nBest regards,\nMUSB Research Team"
+    
+    background_tasks.add_task(send_email_notification, current_user.email, subject, body_text)
 
     return ScreenerOut(
         id=str(result.inserted_id),
@@ -383,7 +384,7 @@ async def sign_consent(
     # Update participant status
     await db["participants"].update_one(
         {"_id": participant["_id"]},
-        {"$set": {"status": "CONSENTED", "consentedAt": now, "studyId": body.studyId}}
+        {"$set": {"status": "CONSENTED", "consentedAt": now, "studyId": body.studyId, "updatedAt": now}}
     )
     
     return ConsentOut(

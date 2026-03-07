@@ -221,10 +221,10 @@ export default function Footer() {
 
                     {/* right side: compliance badges + links */}
                     <div className="flex flex-col md:flex-row items-center gap-6">
-                        <div className="flex items-center gap-4">
-                            <div className="px-3 py-1.5 border border-white/10 rounded font-black text-[13px] text-slate-500 uppercase tracking-tighter">HIPAA Compliant</div>
-                            <div className="px-3 py-1.5 border border-white/10 rounded font-black text-[13px] text-slate-500 uppercase tracking-tighter">GDPR Ready</div>
-                            <div className="px-3 py-1.5 border border-white/10 rounded font-black text-[13px] text-slate-500 uppercase tracking-tighter">21 CFR Part 11</div>
+                        <div className="flex flex-wrap justify-center items-center gap-3 sm:gap-4">
+                            <div className="px-3 py-1.5 border border-white/10 rounded font-black text-[11px] sm:text-[13px] text-slate-500 uppercase tracking-tighter">HIPAA Compliant</div>
+                            <div className="px-3 py-1.5 border border-white/10 rounded font-black text-[11px] sm:text-[13px] text-slate-500 uppercase tracking-tighter">GDPR Ready</div>
+                            <div className="px-3 py-1.5 border border-white/10 rounded font-black text-[11px] sm:text-[13px] text-slate-500 uppercase tracking-tighter">21 CFR Part 11</div>
                         </div>
                         <div className="flex flex-wrap justify-center md:justify-end gap-6 lg:gap-8">
                             <Link href="/privacy" className="text-slate-400 hover:text-white text-[13px] font-black uppercase tracking-widest transition-colors">Privacy / Data Use</Link>

@@ -9,10 +9,10 @@ request_log: Dict[str, List[Tuple[float, str]]] = {}
 
 # Rate limit configuration (requests per time window)
 RATE_LIMITS = {
-    "/api/auth/login": {"requests": 5, "window_minutes": 15},  # 5 attempts per 15 min
-    "/api/auth/register": {"requests": 3, "window_minutes": 60},  # 3 attempts per hour
-    "/api/auth/verify/send": {"requests": 5, "window_minutes": 60},  # 5 OTPs per hour
-    "/api/auth/verify/check": {"requests": 10, "window_minutes": 15},  # 10 checks per 15 min
+    "/api/auth/login": {"requests": 20, "window_minutes": 15},  # 20 attempts per 15 min (dev-friendly)
+    "/api/auth/register": {"requests": 10, "window_minutes": 60},  # 10 attempts per hour
+    "/api/auth/verify/send": {"requests": 10, "window_minutes": 60},  # 10 OTPs per hour
+    "/api/auth/verify/check": {"requests": 20, "window_minutes": 15},  # 20 checks per 15 min
 }
 
 

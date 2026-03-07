@@ -9,7 +9,7 @@ Only users with role=SUPER_ADMIN may access these endpoints.
 
 from datetime import datetime, timezone
 from typing import Optional
-from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi import APIRouter, Depends, HTTPException, Query, BackgroundTasks
 from pydantic import BaseModel
 from bson import ObjectId
 from motor.motor_asyncio import AsyncIOMotorDatabase
@@ -41,6 +41,7 @@ async def get_platform_stats(
     total_users      = await db["users"].count_documents({})
     total_admins     = await db["users"].count_documents({"role": {"$in": ["ADMIN", "SUPER_ADMIN"]}})
     total_sponsors   = await db["users"].count_documents({"role": "SPONSOR"})
+    total_sponsor_teams = await db["users"].count_documents({"role": {"$in": ["SPONSOR_ADMIN", "STUDY_MANAGER", "VIEWER"]}})
     total_studies    = await db["studies"].count_documents({})
     active_studies   = await db["studies"].count_documents({"status": "ACTIVE"})
     total_parts      = await db["participants"].count_documents({})
@@ -56,6 +57,7 @@ async def get_platform_stats(
         "totalUsers":       total_users,
         "totalAdmins":      total_admins,
         "totalSponsors":    total_sponsors,
+        "totalSponsorTeams": total_sponsor_teams,
         "totalStudies":     total_studies,
         "activeStudies":    active_studies,
         "totalParticipants": total_parts,
@@ -110,6 +112,7 @@ class CreateUserBody(BaseModel):
 @router.post("/users")
 async def create_user(
     body: CreateUserBody,
+    background_tasks: BackgroundTasks,
     current_user=Depends(require_super_admin),
     db: AsyncIOMotorDatabase = Depends(get_db),
 ):
@@ -142,7 +145,8 @@ async def create_user(
     login_url = f"{settings.FRONTEND_URL}/signin"
 
     try:
-        await notify_new_credentials(
+        background_tasks.add_task(
+            notify_new_credentials,
             user_email=body.email,
             user_name=body.name,
             role=body.role,
@@ -320,6 +324,34 @@ async def list_sponsors(
             "createdAt": u.get("createdAt"),
         })
     return sponsors
+
+
+@router.get("/sponsors/team")
+async def list_sponsor_teams(
+    current_user=Depends(require_super_admin),
+    db: AsyncIOMotorDatabase = Depends(get_db),
+):
+    """List all sponsor team members across all sponsors."""
+    team_members = []
+    async for u in db["users"].find({"role": {"$in": ["SPONSOR_ADMIN", "STUDY_MANAGER", "VIEWER"]}}).sort("createdAt", -1):
+        # Resolve parent sponsor email/name for context
+        sponsor_email = "Unknown"
+        if u.get("parentSponsorId"):
+            parent = await db["users"].find_one({"_id": ObjectId(u["parentSponsorId"])})
+            if parent:
+                sponsor_email = parent.get("email")
+
+        team_members.append({
+            "id":        str(u["_id"]),
+            "name":      decrypt_data(u.get("name")) or "",
+            "email":     u.get("email", ""),
+            "role":      u.get("role", ""),
+            "status":    u.get("status", "ACTIVE"),
+            "parentSponsorEmail": sponsor_email,
+            "assignedStudies": u.get("assignedStudies", []),
+            "createdAt": u.get("createdAt"),
+        })
+    return team_members
 
 
 @router.get("/sponsor-leads")

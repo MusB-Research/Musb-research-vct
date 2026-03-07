@@ -101,6 +101,7 @@ export default function SuperAdminDashboard() {
         { label: "Active Participants", value: stats.activeParticipants?.toLocaleString() || "0", icon: UserCheck, color: "text-emerald-400" },
         { label: "Admins & Staff", value: stats.totalAdmins?.toLocaleString() || "0", icon: Crown, color: "text-amber-400", href: "/super-admin/users" },
         { label: "Sponsors", value: stats.totalSponsors?.toLocaleString() || "0", icon: Building2, color: "text-pink-400", href: "/super-admin/sponsors" },
+        { label: "Sponsor Teams", value: stats.totalSponsorTeams?.toLocaleString() || "0", icon: Users, color: "text-rose-400", href: "/super-admin/sponsors" },
         { label: "Active Studies", value: stats.activeStudies?.toLocaleString() || "0", icon: Activity, color: "text-cyan-400" },
         { label: "Open Adverse Events", value: stats.openAdverseEvents?.toLocaleString() || "0", icon: ShieldAlert, color: "text-red-400" },
         { label: "Audit Events Today", value: stats.auditEventsToday?.toLocaleString() || "0", icon: FileText, color: "text-slate-400", href: "/super-admin/audit" },

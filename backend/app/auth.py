@@ -29,6 +29,9 @@ def get_modules_for_role(role: str) -> list:
         "PI": ["VCT"],
         "DATA_MANAGER": ["VCT"],
         "SPONSOR": ["VCT"],
+        "SPONSOR_ADMIN": ["VCT"],
+        "STUDY_MANAGER": ["VCT"],
+        "VIEWER": ["VCT"],
         "PARTICIPANT": ["VCT"],
     }
     return role_modules.get(role, ["VCT"])
@@ -59,9 +62,10 @@ def decode_token(token: str) -> TokenData:
         email: str = payload.get("email")
         role: str = payload.get("role")
         modules: list = payload.get("modules", [])
+        parent_sponsor_id: str = payload.get("parent_sponsor_id", None)
         if user_id is None:
             raise credentials_exception
-        return TokenData(user_id=user_id, email=email, role=role, modules=modules)
+        return TokenData(user_id=user_id, email=email, role=role, modules=modules, parent_sponsor_id=parent_sponsor_id)
     except JWTError:
         raise credentials_exception
 

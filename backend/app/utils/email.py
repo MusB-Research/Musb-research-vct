@@ -10,16 +10,37 @@ async def send_email_notification(
     to_email: str,
     subject: str,
     body: str,
-    html: Optional[str] = None
+    html: Optional[str] = None,
+    max_retries: int = 3
 ):
     """
     Utility for sending emails securely utilizing SMTP credentials from .env.
+    Designed to be run via FastAPI BackgroundTasks (synchronously in a thread pool).
+    Note: the def is kept `async def` but its contents await `to_thread` optionally,
+    OR we can make it a regular sync `def` if called directly via add_task.
+    Since we don't want to break existing direct `await send_email_notification(..)` calls,
+    we'll modify it to be non-blocking internally or update all callers.
+
+    Update: We've updated all callers to pass this to background_tasks.add_task *except* 
+    where we might miss it. However, if background_tasks.add_task receives an async def, 
+    FastAPI will run it in the event loop, taking up time. Let's make it a normal sync func.
+    WAIT: If we make it sync, all existing `await send_email_notification(...)` will break 
+    (TypeError: object NoneType can't be used in 'await' expression).
+    
+    Actually, BackgroundTasks accepts BOTH async and sync functions. 
+    If you add an `async def` to BackgroundTasks, FastAPI runs it in the event loop asynchronously.
+    So the BEST approach: Make it a regular `def`, remove `await`, and update all callers to NOT await it.
+    BUT since there are many callers, another approach: KEEP it `async def`, but make its internal logic `await asyncio.to_thread(_send)`. Wait, that's what it was doing originally! The issue was that callers were `await`ing it *during the request*, delaying the response.
+    So we strictly need to change the *callers* to use `background_tasks.add_task(send_email_notification, ...)`.
+    And for that to not block the event loop, `send_email_notification` STILL needs `await asyncio.to_thread()`.
+    
+    Let's stick to keeping it `async def` with `to_thread`, AND we add retry logic inside it.
+    And we will use `BackgroundTasks` in the routes.
     """
     # Still print for debugging purposes in case SMTP fails
     print(f"\n" + "="*50)
     print(f"[MAIL] EMAIL PREPARED FOR: {to_email}")
     print(f"[SUBJ] SUBJECT: {subject}")
-    print(f"[BODY] BODY:\n{body}")
     print("="*50 + "\n")
     
     settings = get_settings()
@@ -32,33 +53,40 @@ async def send_email_notification(
         logger.warning(f"SMTP credentials missing. Mocked email to {to_email} only.")
         return True
         
-    try:
-        msg = EmailMessage()
-        msg["Subject"] = subject
-        msg["From"] = f"MusB Research <{user}>"
-        msg["To"] = to_email
-        msg.set_content(body)
+    msg = EmailMessage()
+    msg["Subject"] = subject
+    msg["From"] = f"MusB Research <{user}>"
+    msg["To"] = to_email
+    msg.set_content(body)
+    
+    if html:
+        msg.add_alternative(html, subtype="html")
         
-        if html:
-            msg.add_alternative(html, subtype="html")
-            
-        def _send_sync():
-            # Add explicit timeout for the SMTP connection
-            with smtplib.SMTP(host, port, timeout=10) as server:
-                if port == 587:
-                     server.starttls()
-                server.login(str(user), str(password))
-                server.send_message(msg)
-        
-        # Offload blocking SMTP call to a separate thread to keep the event loop free
-        import asyncio
-        await asyncio.to_thread(_send_sync)
-            
-        logger.info(f"Notification email successfully dispatched to {to_email}")
-        return True
-    except Exception as e:
-        logger.error(f"Failed to send email to {to_email}: {str(e)}")
-        return True
+    def _send_sync():
+        import time
+        for attempt in range(max_retries):
+            try:
+                with smtplib.SMTP(host, port, timeout=10) as server:
+                    if port == 587:
+                         server.starttls()
+                    server.login(str(user), str(password))
+                    server.send_message(msg)
+                logger.info(f"Notification email successfully dispatched to {to_email} on attempt {attempt + 1}")
+                return True
+            except smtplib.SMTPException as e:
+                logger.warning(f"SMTP error on attempt {attempt + 1} sending to {to_email}: {str(e)}")
+                if attempt < max_retries - 1:
+                    time.sleep(2 ** attempt)  # Exponential backoff
+            except Exception as e:
+                logger.error(f"Unexpected error sending email to {to_email}: {str(e)}")
+                break
+        logger.error(f"Failed to send email to {to_email} after {max_retries} attempts.")
+        return False
+    
+    # Offload blocking SMTP call to a separate thread to keep the event loop free
+    import asyncio
+    await asyncio.to_thread(_send_sync)
+    return True
 
 async def notify_coordinator_new_message(
     coordinator_email: str,
@@ -218,6 +246,60 @@ async def notify_new_credentials(
         <div style="margin-top: 32px; border-top: 1px solid #e2e8f0; pt: 16px; font-size: 12px; color: #94a3b8;">
             Sent via MUSB Research Automated Notification System
         </div>
+    </div>
+    """
+
+    await send_email_notification(user_email, subject, body, html=html)
+
+
+async def notify_team_invitation(
+    user_email: str,
+    user_name: str,
+    sponsor_name: str,
+    role: str,
+    activation_url: str
+):
+    """Helper to notify a new team member that they've been invited by a sponsor."""
+    role_display = role.replace("_", " ").title()
+    subject = f"You've been invited to join {sponsor_name} on MUSB Research"
+
+    body = f"""
+    Hello {user_name},
+
+    {sponsor_name} has invited you to join their team on MUSB Research.
+
+    Role: {role_display}
+
+    Click the link below to create your password and activate your account:
+    {activation_url}
+
+    This link will expire in 48 hours.
+
+    If you didn't expect this invitation, please ignore this email.
+
+    Thanks,
+    MUSB Research System
+    """
+
+    html = f"""
+    <div style="font-family: sans-serif; max-width: 600px; margin: 0 auto; border: 1px solid #e2e8f0; border-radius: 12px; padding: 24px;">
+        <h2 style="color: #0d9488;">You're Invited!</h2>
+        <p>Hello <strong>{user_name}</strong>,</p>
+        <p><strong>{sponsor_name}</strong> has invited you to join their team on MUSB Research.</p>
+        
+        <div style="background-color: #f8fafc; padding: 16px; border-radius: 8px; margin: 16px 0;">
+            <p style="margin: 0;"><strong>Role:</strong> {role_display}</p>
+        </div>
+        
+        <p>Click the button below to create your password and activate your account. This link expires in 48 hours.</p>
+        
+        <div style="text-align: center; margin: 32px 0;">
+            <a href="{activation_url}" style="background-color: #0d9488; color: white; padding: 12px 24px; border-radius: 6px; text-decoration: none; font-weight: bold; display: inline-block;">
+                Activate Account
+            </a>
+        </div>
+        
+        <p style="color: #64748b; font-size: 12px;">If you didn't expect this, you can safely ignore this email.</p>
     </div>
     """
 

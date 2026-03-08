@@ -1,6 +1,7 @@
 from datetime import datetime, timedelta, timezone
 from typing import Optional
-from jose import JWTError, jwt
+import jwt as pyjwt
+from jwt.exceptions import InvalidTokenError
 import bcrypt
 from fastapi import Depends, HTTPException, status
 from fastapi.security import OAuth2PasswordBearer
@@ -43,9 +44,9 @@ def create_access_token(data: dict, expires_delta: Optional[timedelta] = None) -
         expires_delta or timedelta(minutes=settings.ACCESS_TOKEN_EXPIRE_MINUTES)
     )
     to_encode.update({"exp": expire})
-    # python-jose accepts raw PEM bytes for RS256
-    private_key_pem = settings.PRIVATE_KEY.replace("\\n", "\n").encode()
-    return jwt.encode(to_encode, private_key_pem, algorithm="RS256")
+    # PyJWT accepts raw PEM string for RS256
+    private_key_pem = settings.PRIVATE_KEY.replace("\\n", "\n")
+    return pyjwt.encode(to_encode, private_key_pem, algorithm="RS256")
 
 
 def decode_token(token: str) -> TokenData:
@@ -55,9 +56,9 @@ def decode_token(token: str) -> TokenData:
         headers={"WWW-Authenticate": "Bearer"},
     )
     try:
-        # python-jose accepts raw PEM bytes for RS256
-        public_key_pem = settings.PUBLIC_KEY.replace("\\n", "\n").encode()
-        payload = jwt.decode(token, public_key_pem, algorithms=["RS256"])
+        # PyJWT accepts raw PEM string for RS256
+        public_key_pem = settings.PUBLIC_KEY.replace("\\n", "\n")
+        payload = pyjwt.decode(token, public_key_pem, algorithms=["RS256"])
         user_id: str = payload.get("sub")
         email: str = payload.get("email")
         role: str = payload.get("role")
@@ -66,7 +67,7 @@ def decode_token(token: str) -> TokenData:
         if user_id is None:
             raise credentials_exception
         return TokenData(user_id=user_id, email=email, role=role, modules=modules, parent_sponsor_id=parent_sponsor_id)
-    except JWTError:
+    except InvalidTokenError:
         raise credentials_exception
 
 

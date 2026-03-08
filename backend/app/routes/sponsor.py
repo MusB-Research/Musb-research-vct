@@ -439,7 +439,7 @@ from app.models import TeamMemberInvite, TeamMemberUpdate, TeamMemberSetPassword
 from app.auth import create_access_token, decode_token, get_password_hash
 from app.utils.email import notify_team_invitation
 from datetime import timedelta
-from jose import JWTError
+import jwt
 
 @router.post("/team/invite")
 async def invite_team_member(
@@ -518,8 +518,7 @@ async def setup_team_password(
     # 1. Decode token
     try:
         from app.auth import settings as auth_settings
-        import jwt
-        public_key_pem = auth_settings.PUBLIC_KEY.replace("\\n", "\n").encode()
+        public_key_pem = auth_settings.PUBLIC_KEY.replace("\\n", "\n")
         payload = jwt.decode(body.token, public_key_pem, algorithms=["RS256"])
         if payload.get("purpose") != "TEAM_INVITE":
             raise HTTPException(status_code=400, detail="Invalid token purpose")

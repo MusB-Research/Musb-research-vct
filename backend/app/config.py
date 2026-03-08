@@ -66,6 +66,7 @@ class Settings(BaseSettings):
     SMTP_EMAIL: str = ""
     SMTP_PASSWORD: str = ""
     EMAIL_FROM: str = "noreply@musbresearch.com"
+    ADMIN_EMAIL: str = "info@musbresearch.com"  # Where admin notifications go
 
     class Config:
         env_file = ".env"

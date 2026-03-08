@@ -106,8 +106,24 @@ export default function SponsorDashboard() {
     const router = useRouter();
 
     // ── Per-tab auth: reads from THIS TAB's sessionStorage only ──
-    const portalSession = typeof window !== "undefined" ? AdminAuth.get() : null;
-    const sponsorUser = portalSession?.user;
+    // IMPORTANT: AdminAuth.get() reads from sessionStorage which is only available
+    // on the client after mount. Using useState + useEffect ensures we always get
+    // the real logged-in user's data, not null from a server-side render.
+    const [sponsorUser, setSponsorUser] = useState<{ id: string; name: string; email: string; role: string } | null>(null);
+
+    useEffect(() => {
+        const session = AdminAuth.get();
+        if (session?.user) {
+            setSponsorUser(session.user);
+        }
+    }, []);
+
+    const displaySponsorInfo = {
+        name: sponsorUser?.name || "Sponsor Partner",
+        org: sponsorUser?.name || "Your Company",
+        email: sponsorUser?.email || "—",
+        sponsorId: sponsorUser?.id ? `SP-${sponsorUser.id.substring(0, 8).toUpperCase()}` : "—",
+    };
 
     const [activeTab, setActiveTab] = useState<"overview" | "mystudies" | "participants" | "safety" | "documents" | "reports" | "team">("overview");
     const [isTabDropdownOpen, setIsTabDropdownOpen] = useState(false);
@@ -137,12 +153,15 @@ export default function SponsorDashboard() {
     const profileRef = useRef<HTMLDivElement>(null);
     const notificationRef = useRef<HTMLDivElement>(null);
 
-    // ── RBAC Guard ──
+    // ── RBAC Guard + Load sponsor user ──
     useEffect(() => {
         const session = AdminAuth.get();
         if (!session || !["SPONSOR", "SPONSOR_ADMIN", "STUDY_MANAGER", "VIEWER"].includes(session.user.role)) {
             router.replace("/sponsor/login");
+            return;
         }
+        // Populate the logged-in user's real info from sessionStorage
+        setSponsorUser(session.user);
 
         const handleClickOutside = (event: MouseEvent | TouchEvent) => {
             if (profileRef.current && !profileRef.current.contains(event.target as Node)) {
@@ -354,11 +373,11 @@ export default function SponsorDashboard() {
                         <div className="sm:relative" ref={profileRef}>
                             <button className="flex items-center gap-3 pl-4 border-l border-white/5 cursor-pointer group w-full text-left focus:outline-none" onClick={() => setIsProfileOpen((prev) => !prev)}>
                                 <div className="w-9 h-9 rounded-xl bg-amber-500/10 border border-amber-500/20 flex items-center justify-center text-amber-400 font-black text-sm group-hover:bg-amber-500/20 transition-all">
-                                    {sponsorInfo.name[0]}
+                                    {(displaySponsorInfo.name || "S")[0]}
                                 </div>
                                 <div className="hidden md:block">
-                                    <p className="text-sm font-bold text-white leading-none group-hover:text-amber-400 transition-colors">{sponsorInfo.name}</p>
-                                    <p className="text-[11px] text-slate-500 mt-0.5 font-bold uppercase tracking-widest">{sponsorInfo.org}</p>
+                                    <p className="text-sm font-bold text-white leading-none group-hover:text-amber-400 transition-colors">{displaySponsorInfo.name}</p>
+                                    <p className="text-[11px] text-slate-500 mt-0.5 font-bold uppercase tracking-widest">{displaySponsorInfo.org}</p>
                                 </div>
                                 <ChevronDown size={14} className={`text-slate-600 transition-transform duration-200 ${isProfileOpen ? 'rotate-180' : ''}`} />
                             </button>
@@ -367,8 +386,8 @@ export default function SponsorDashboard() {
                             {isProfileOpen && (
                                 <div className="absolute left-4 right-4 sm:left-auto sm:right-0 top-[70px] sm:top-auto sm:mt-4 sm:w-64 bg-[#0a1120]/98 border border-white/10 rounded-2xl shadow-2xl overflow-hidden z-50 animate-in fade-in zoom-in-95 duration-200 origin-top-right">
                                     <div className="p-5 border-b border-white/5">
-                                        <p className="text-xs font-black text-white uppercase tracking-widest mb-1">{sponsorInfo.name}</p>
-                                        <p className="text-[11px] text-slate-500 font-bold truncate italic">{sponsorInfo.email}</p>
+                                        <p className="text-xs font-black text-white uppercase tracking-widest mb-1">{displaySponsorInfo.name}</p>
+                                        <p className="text-[11px] text-slate-500 font-bold truncate italic">{displaySponsorInfo.email}</p>
                                     </div>
                                     <div className="p-2">
                                         <button className="flex items-center gap-3 w-full px-4 py-3 rounded-xl text-[13px] font-bold text-slate-400 hover:text-white hover:bg-white/5 transition-all text-left">
@@ -396,7 +415,7 @@ export default function SponsorDashboard() {
                     <div>
                         <h1 className="text-2xl sm:text-3xl font-black text-white italic tracking-tight">Sponsor Dashboard</h1>
                         <p className="text-slate-500 text-sm mt-1">
-                            {sponsorInfo.org} · ID: <span className="text-amber-400 font-bold">{sponsorInfo.sponsorId}</span>
+                            {displaySponsorInfo.org} · ID: <span className="text-amber-400 font-bold">{displaySponsorInfo.sponsorId}</span>
                         </p>
                     </div>
                     <div className="flex flex-wrap gap-2 md:gap-3">

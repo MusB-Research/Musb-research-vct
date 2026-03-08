@@ -59,6 +59,7 @@ export async function POST(req: Request) {
         }
 
         const smtpEmail = process.env.SMTP_EMAIL!;
+        const adminEmail = process.env.ADMIN_EMAIL || smtpEmail; // fallback to sender Gmail if ADMIN_EMAIL not set
         const appUrl = process.env.NEXT_PUBLIC_APP_URL || "https://musb-research-vct.vercel.app";
 
         // ── 1. Build participant-facing email ────────────────────────────────
@@ -149,7 +150,7 @@ export async function POST(req: Request) {
 
             const adminMailOptions = {
                 from: `"MusB Research VCT" <${smtpEmail}>`,
-                to: "info@musbresearch.com",
+                to: adminEmail,
                 subject: `[NEW SCREENER] ${statusLabel} — ${studyTitle}`,
                 html: `
                     <div style="font-family: 'Segoe UI', sans-serif; max-width: 700px; margin: 0 auto; background: #ffffff; border: 1px solid #e2e8f0; border-radius: 12px; overflow: hidden;">
@@ -179,7 +180,7 @@ export async function POST(req: Request) {
 
             try {
                 await transporter.sendMail(adminMailOptions);
-                console.log("[NOTIFY] ✅ Admin alert sent to info@musbresearch.com");
+                console.log(`[NOTIFY] ✅ Admin alert sent to ${adminEmail}`);
                 adminSendSuccess = true;
             } catch (adminErr) {
                 console.error("[NOTIFY] ❌ Failed to send admin alert:", adminErr);

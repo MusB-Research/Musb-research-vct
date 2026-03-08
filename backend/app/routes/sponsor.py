@@ -185,12 +185,13 @@ async def launch_study(
             "createdAt": doc["createdAt"],
         })
 
+        # Pass the full study_details dict (not just study_title string)
         background_tasks.add_task(
             notify_admin_new_study_inquiry,
             admin_email=admin_email,
             sponsor_name=sponsor_name,
             sponsor_email=current_user.email,
-            study_title=study_title
+            study_details=study_in.model_dump()
         )
 
     # Map _id to id for response
@@ -285,17 +286,9 @@ async def update_study(
 from fastapi import File, UploadFile, Form
 import json as _json
 
-ROUTE_MAP = {
-    "Biorepository": "biorepository@musbresearch.com",
-    "Biomarker / Lab Support": "lab@musbresearch.com",
-    "Not Sure – Need Guidance": "sales@musbresearch.com",
-}
-DEFAULT_ROUTE = "sales@musbresearch.com"
-LEGAL_EMAIL   = "info@musbresearch.com"
-
-
 @router.post("/lead")
 async def submit_lead(
+    background_tasks: BackgroundTasks,
     data: str = Form(...),
     file: UploadFile = File(None),
     current_user=Depends(get_current_user),
@@ -305,6 +298,17 @@ async def submit_lead(
     Handle sponsor study inquiry leads (Step 1 = preliminary, Step 2 = qualified).
     Supports multipart (with optional file attachment).
     """
+    settings = get_settings()
+    admin_email = settings.ADMIN_EMAIL
+
+    ROUTE_MAP = {
+        "Biorepository": admin_email,
+        "Biomarker / Lab Support": admin_email,
+        "Not Sure – Need Guidance": admin_email,
+    }
+    DEFAULT_ROUTE = admin_email
+    LEGAL_EMAIL   = admin_email
+
     try:
         payload = _json.loads(data)
     except Exception:
@@ -418,9 +422,8 @@ DESCRIPTION:
 
 Lead ID: {lead_id}
 """
-    import asyncio
     from app.utils.email import send_email_notification
-    asyncio.create_task(send_email_notification(route_email, email_subject, email_body))
+    background_tasks.add_task(send_email_notification, route_email, email_subject, email_body)
 
     return {
         "message": "Lead submitted successfully",

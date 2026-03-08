@@ -134,6 +134,8 @@ async def submit_contact_form(
     
     # Notify admin of new contact form submission
     from app.utils.email import send_email_notification
+    from app.config import get_settings as _get_settings
+    _settings = _get_settings()
     admin_subject = f"MUSB Research: New Contact Form Submission from {body.firstName} {body.lastName}"
     admin_body = f"""New contact form submission received.
 
@@ -144,7 +146,7 @@ Message:
 {body.message}
 
 Please log in to the admin portal to view and reply."""
-    background_tasks.add_task(send_email_notification, "info@musbresearch.com", admin_subject, admin_body)
+    background_tasks.add_task(send_email_notification, _settings.ADMIN_EMAIL, admin_subject, admin_body)
     
     # Auto-reply to sender
     auto_reply_subject = "We received your message — MUSB Research"

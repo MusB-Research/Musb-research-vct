@@ -40,7 +40,11 @@ function StatCard({
             )}
         </div>
     );
-    return href ? <Link href={href}>{inner}</Link> : inner;
+    if (!href) return inner;
+    // External URL → open in new tab
+    if (href.startsWith("http")) return <a href={href} target="_blank" rel="noopener noreferrer">{inner}</a>;
+    // Internal URL → Next.js Link
+    return <Link href={href}>{inner}</Link>;
 }
 
 // ─── Quick Action Button ───────────────────────────────────────────────────────
@@ -98,12 +102,15 @@ export default function SuperAdminDashboard() {
     const statCards = stats ? [
         { label: "Total Users", value: stats.totalUsers?.toLocaleString() || "0", icon: Users, color: "text-violet-400", href: "/super-admin/users", trend: "up" as const },
         { label: "Total Studies", value: stats.totalStudies?.toLocaleString() || "0", icon: Briefcase, color: "text-blue-400", href: "/super-admin/studies" },
-        { label: "Active Participants", value: stats.activeParticipants?.toLocaleString() || "0", icon: UserCheck, color: "text-emerald-400" },
-        { label: "Admins & Staff", value: stats.totalAdmins?.toLocaleString() || "0", icon: Crown, color: "text-amber-400", href: "/super-admin/users" },
+        // Active Participants → links to main public website
+        { label: "Active Participants", value: stats.activeParticipants?.toLocaleString() || "0", icon: UserCheck, color: "text-emerald-400", href: "https://www.musbhealth.com/" },
+        // Admins & Staff → filtered to staff roles only (not all users)
+        { label: "Admins & Staff", value: stats.totalAdmins?.toLocaleString() || "0", icon: Crown, color: "text-amber-400", href: "/super-admin/users?role=ADMIN" },
         { label: "Sponsors", value: stats.totalSponsors?.toLocaleString() || "0", icon: Building2, color: "text-pink-400", href: "/super-admin/sponsors" },
         { label: "Sponsor Teams", value: stats.totalSponsorTeams?.toLocaleString() || "0", icon: Users, color: "text-rose-400", href: "/super-admin/sponsors" },
-        { label: "Active Studies", value: stats.activeStudies?.toLocaleString() || "0", icon: Activity, color: "text-cyan-400" },
-        { label: "Open Adverse Events", value: stats.openAdverseEvents?.toLocaleString() || "0", icon: ShieldAlert, color: "text-red-400" },
+        { label: "Active Studies", value: stats.activeStudies?.toLocaleString() || "0", icon: Activity, color: "text-cyan-400", href: "/super-admin/studies" },
+        // Open Adverse Events → now clickable, goes to audit log
+        { label: "Open Adverse Events", value: stats.openAdverseEvents?.toLocaleString() || "0", icon: ShieldAlert, color: "text-red-400", href: "/super-admin/audit" },
         { label: "Audit Events Today", value: stats.auditEventsToday?.toLocaleString() || "0", icon: FileText, color: "text-slate-400", href: "/super-admin/audit" },
     ] : [];
 

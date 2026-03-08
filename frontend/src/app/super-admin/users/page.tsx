@@ -182,7 +182,13 @@ export default function SuperAdminUsersPage() {
     const [total, setTotal] = useState(0);
     const [loading, setLoading] = useState(true);
     const [search, setSearch] = useState("");
-    const [roleFilter, setRoleFilter] = useState("");
+    // Pre-populate role filter from URL ?role= param (e.g. from Admins & Staff card)
+    const [roleFilter, setRoleFilter] = useState(() => {
+        if (typeof window !== "undefined") {
+            return new URLSearchParams(window.location.search).get("role") || "";
+        }
+        return "";
+    });
     const [showCreate, setShowCreate] = useState(false);
     const [editUser, setEditUser] = useState<any | null>(null);
     const [deleting, setDeleting] = useState<string | null>(null);

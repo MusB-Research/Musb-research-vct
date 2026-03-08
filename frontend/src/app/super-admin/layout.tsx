@@ -83,7 +83,7 @@ export default function SuperAdminLayout({ children }: { children: React.ReactNo
 
     const handleSignOut = () => {
         SuperAdminAuth.clear();
-        router.replace("/super-admin/login");
+        window.location.href = "https://www.musbhealth.com/";
     };
 
     if (pathname === "/super-admin/login") return <>{children}</>;
@@ -166,7 +166,7 @@ export default function SuperAdminLayout({ children }: { children: React.ReactNo
                 {/* User card at bottom (HIDDEN ON MOBILE, integrated into header) */}
                 <div className="hidden lg:block p-4 border-t space-y-2" style={{ borderColor: "rgba(139,92,246,0.15)" }}>
                     <a
-                        href="/"
+                        href="https://www.musbhealth.com/"
                         target="_blank"
                         rel="noopener noreferrer"
                         className="flex items-center gap-3 w-full px-3 py-2.5 rounded-xl text-slate-500 hover:text-emerald-400 hover:bg-emerald-500/8 border border-transparent hover:border-emerald-500/20 transition-all group text-sm font-semibold"

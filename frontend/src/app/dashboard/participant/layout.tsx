@@ -120,7 +120,8 @@ export default function ParticipantLayout({ children }: { children: React.ReactN
 
     const handleSignOut = async () => {
         ParticipantAuth.clear();
-        await signOut({ callbackUrl: "https://www.musbhealth.com/" });
+        await signOut({ redirect: false });
+        window.location.href = "https://www.musbhealth.com/";
     };
 
     return (

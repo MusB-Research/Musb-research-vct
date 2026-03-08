@@ -208,29 +208,22 @@ export default function Footer() {
 
                 </div>
 
-                <div className="border-t border-white/5 pt-8 flex flex-col md:flex-row justify-between items-start gap-6">
+                <div className="border-t border-white/5 pt-8 flex flex-col md:flex-row justify-between items-end gap-6">
                     {/* left side: copyright & disclaimer */}
                     <div className="flex flex-col items-center md:items-start gap-2">
-                        <p className="text-slate-600 text-[13px] font-bold uppercase tracking-widest">
-                            &copy; 2026 MusB Research. All rights reserved.
+                        <p className="text-slate-500 text-[13px] font-bold uppercase tracking-widest">
+                            &copy; 2026 MUSB&trade; RESEARCH. ALL RIGHTS RESERVED.
                         </p>
                         <p className="text-slate-500 text-[11px] max-w-md text-center md:text-left">
-                            Information can change without notice. MusB™ Research – Integrated Research & Clinical Solutions.
+                            Information can change without notice. MusB&trade; Research &ndash; Integrated Research & Clinical Solutions.
                         </p>
                     </div>
 
-                    {/* right side: compliance badges + links */}
+                    {/* right side: links */}
                     <div className="flex flex-col md:flex-row items-center gap-6">
-                        <div className="flex flex-wrap justify-center items-center gap-3 sm:gap-4">
-                            <div className="px-3 py-1.5 border border-white/10 rounded font-black text-[11px] sm:text-[13px] text-slate-500 uppercase tracking-tighter">HIPAA Compliant</div>
-                            <div className="px-3 py-1.5 border border-white/10 rounded font-black text-[11px] sm:text-[13px] text-slate-500 uppercase tracking-tighter">GDPR Ready</div>
-                            <div className="px-3 py-1.5 border border-white/10 rounded font-black text-[11px] sm:text-[13px] text-slate-500 uppercase tracking-tighter">21 CFR Part 11</div>
-                        </div>
-                        <div className="flex flex-wrap justify-center md:justify-end gap-6 lg:gap-8">
-                            <Link href="/privacy" className="text-slate-400 hover:text-white text-[13px] font-black uppercase tracking-widest transition-colors">Privacy / Data Use</Link>
-                            <Link href="/help" className="text-slate-400 hover:text-white text-[13px] font-black uppercase tracking-widest transition-colors">Help / FAQ</Link>
-                            <Link href="/terms" className="text-slate-500 hover:text-slate-300 text-[11px] font-bold uppercase tracking-widest transition-colors">Terms of Use</Link>
-                            <Link href="/cookies" className="text-slate-500 hover:text-slate-300 text-[11px] font-bold uppercase tracking-widest transition-colors">Cookie Settings</Link>
+                        <div className="flex flex-wrap justify-center md:justify-end gap-6 lg:gap-10">
+                            <Link href="/privacy" className="text-slate-400 hover:text-white text-[13px] font-bold uppercase tracking-widest transition-colors">Privacy Policy</Link>
+                            <Link href="/terms" className="text-slate-400 hover:text-white text-[13px] font-bold uppercase tracking-widest transition-colors">Terms of Use</Link>
                         </div>
                     </div>
                 </div>

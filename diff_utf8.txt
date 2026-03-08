@@ -1,0 +1,333 @@
+﻿commit 46d60c9ce38c298ad744dca53fd3fb382b2be3cc
+Author: kumarBijesh <brijeshraj6342@gmail.com>
+Date:   Sun Mar 8 13:15:53 2026 +0530
+
+    Fix: all MUSB logos link to musbhealth.com (same tab); homepage redirects to musbhealth.com; participant Main Site button links to musbhealth.com; all sign-outs redirect to musbhealth.com; Admins&Staff card filters users; Adverse Events card clickable
+
+diff --git a/frontend/src/app/admin/login/page.tsx b/frontend/src/app/admin/login/page.tsx
+index ab6f41b..aaee6b6 100644
+--- a/frontend/src/app/admin/login/page.tsx
++++ b/frontend/src/app/admin/login/page.tsx
+@@ -136,9 +136,9 @@ export default function AdminLoginPage() {
+ 
+                     <div className="relative z-10">
+                         <div className="text-center mb-10">
+-                            <Link href="/" className="inline-flex items-center gap-2 mb-6">
+-                                <img src="/musb research.png" alt="MUSB Research" className="h-10 w-auto object-contain" />
+-                            </Link>
++                            <a href="https://www.musbhealth.com/" className="inline-flex items-center gap-2 mb-6">
++                                <img src="/musb research.png" alt="MUSB Research" className="h-10 w-auto object-contain hover:opacity-80 transition-opacity" />
++                            </a>
+                             <h1 className="text-2xl font-black text-white italic tracking-tight mb-2">
+                                 Admin Console
+                             </h1>
+diff --git a/frontend/src/app/dashboard/participant/layout.tsx b/frontend/src/app/dashboard/participant/layout.tsx
+index 943d0b8..b56ca1f 100644
+--- a/frontend/src/app/dashboard/participant/layout.tsx
++++ b/frontend/src/app/dashboard/participant/layout.tsx
+@@ -19,7 +19,7 @@ const navItems = [
+     { name: "Documents", href: "/dashboard/participant/documents", icon: FolderOpen },
+     { name: "Reports", href: "/dashboard/participant/reports", icon: Activity },
+     { name: "Profile", href: "/dashboard/participant/profile", icon: UserCircle },
+-    { name: "Main Site", href: "/", icon: Home },
++    { name: "Main Site", href: "https://www.musbhealth.com/", icon: Home },
+ ];
+ 
+ export default function ParticipantLayout({ children }: { children: React.ReactNode }) {
+@@ -174,12 +174,21 @@ export default function ParticipantLayout({ children }: { children: React.ReactN
+                         const isActive = item.href === "/"
+                             ? pathname === "/"
+                             : pathname.startsWith(item.href);
++                        const cls = `flex items-center gap-3 px-4 py-3 rounded-xl transition-all group text-sm font-semibold ${isActive
++                            ? "bg-cyan-500/10 text-cyan-400 border border-cyan-500/20 shadow-lg shadow-cyan-500/5"
++                            : "text-slate-500 hover:text-slate-300 hover:bg-slate-800/50 border border-transparent"
++                            }`;
++                        // External link ΓåÆ plain <a> tag, same tab
++                        if (item.href.startsWith("http")) {
++                            return (
++                                <a key={item.name} href={item.href} className={cls}>
++                                    <item.icon size={18} className={isActive ? "text-cyan-400" : "text-slate-500 group-hover:text-slate-400"} />
++                                    {item.name}
++                                </a>
++                            );
++                        }
+                         return (
+-                            <Link key={item.name} href={item.href}
+-                                className={`flex items-center gap-3 px-4 py-3 rounded-xl transition-all group text-sm font-semibold ${isActive
+-                                    ? "bg-cyan-500/10 text-cyan-400 border border-cyan-500/20 shadow-lg shadow-cyan-500/5"
+-                                    : "text-slate-500 hover:text-slate-300 hover:bg-slate-800/50 border border-transparent"
+-                                    }`}>
++                            <Link key={item.name} href={item.href} className={cls}>
+                                 <item.icon size={18} className={isActive ? "text-cyan-400" : "text-slate-500 group-hover:text-slate-400"} />
+                                 {item.name}
+                             </Link>
+diff --git a/frontend/src/app/forgot-password/page.tsx b/frontend/src/app/forgot-password/page.tsx
+index 20636cb..3499b1d 100644
+--- a/frontend/src/app/forgot-password/page.tsx
++++ b/frontend/src/app/forgot-password/page.tsx
+@@ -87,7 +87,9 @@ export default function ForgotPasswordPage() {
+                     <div className="relative z-10">
+                         <div className="text-center mb-10">
+                             <Link href="/" className="inline-flex items-center gap-2 mb-6">
+-                                <img src="/musb research.png" alt="MUSB Research" className="h-10 w-auto object-contain filter drop-shadow-[0_0_15px_rgba(255,255,255,0.2)]" />
++                                <a href="https://www.musbhealth.com/">
++                                    <img src="/musb research.png" alt="MUSB Research" className="h-10 w-auto object-contain filter drop-shadow-[0_0_15px_rgba(255,255,255,0.2)] hover:opacity-80 transition-opacity" />
++                                </a>
+                             </Link>
+                             <h1 className="text-2xl font-black text-white italic tracking-tight mb-2">
+                                 {step === 3 ? "Password Reset" : "Forgot Password?"}
+diff --git a/frontend/src/app/page.tsx b/frontend/src/app/page.tsx
+index 952a564..332cd30 100644
+--- a/frontend/src/app/page.tsx
++++ b/frontend/src/app/page.tsx
+@@ -1,140 +1,5 @@
+-"use client";
+-
+-import { ArrowRight, Activity, ShieldCheck, Zap, Globe, Users } from "lucide-react";
+-import Link from "next/link";
+-import Container from "@/components/Container";
++import { redirect } from "next/navigation";
+ 
+ export default function Home() {
+-    return (
+-        <div className="relative isolate overflow-hidden">
+-            {/* Hero Section */}
+-            <section className="pt-32 pb-20 relative min-h-[85vh] md:min-h-screen flex items-center justify-center overflow-hidden">
+-
+-                {/* Lab background image with dark overlay ΓÇô matching main MusB Research website */}
+-                <div
+-                    className="absolute inset-0 -z-10"
+-                    style={{
+-                        backgroundImage: "url('/hero-lab-bg.png')",
+-                        backgroundSize: "cover",
+-                        backgroundPosition: "center",
+-                        backgroundRepeat: "no-repeat",
+-                    }}
+-                />
+-                {/* Dark gradient overlay so text stays readable */}
+-                <div className="absolute inset-0 -z-10 bg-gradient-to-b from-[#0a1128]/80 via-[#0a1128]/70 to-[#0a1128]/95" />
+-
+-                <Container className="text-center relative z-10 w-full">
+-                    <h1 className="text-3xl sm:text-5xl md:text-7xl font-black tracking-tight mb-4 md:mb-6 text-white animate-fade-in-up px-2 leading-[1.1] md:leading-none">
+-                        Accelerating <br className="hidden sm:block" /> Medical Discovery
+-                    </h1>
+-                    <p className="text-sm sm:text-lg md:text-xl text-slate-200 max-w-prose md:max-w-2xl mx-auto mb-8 md:mb-10 animate-fade-in-up stagger-3 px-6 sm:px-0 opacity-90">
+-                        MUSB Research connects patients, researchers, and biotech leaders in a unified virtual ecosystem.
+-                        Experience the future of decentralized clinical trials.
+-                    </p>
+-                    <div className="flex flex-col sm:flex-row items-center justify-center gap-4 animate-fade-in-up stagger-4 w-full px-4 sm:px-0">
+-                        <Link href="/studies" className="w-full sm:w-auto px-8 py-4 bg-cyan-400 hover:bg-cyan-300 text-slate-900 font-black uppercase tracking-widest rounded-full transition-all hover:-translate-y-1 shadow-lg hover:shadow-cyan-500/40 shadow-cyan-500/25 text-center justify-center flex items-center gap-2 group transform-gpu duration-300">
+-                            Find a Clinical Study
+-                            <ArrowRight size={18} className="group-hover:translate-x-1 transition-transform" />
+-                        </Link>
+-                        <Link href="/about" className="w-full sm:w-auto px-8 py-4 bg-transparent border border-white/30 hover:border-white/60 text-white hover:text-white rounded-full font-semibold transition-all hover:-translate-y-1 hover:shadow-lg hover:shadow-white/10 backdrop-blur-sm text-center justify-center flex items-center transform-gpu duration-300">
+-                            Explore Innovation
+-                        </Link>
+-                    </div>
+-                </Container>
+-
+-                {/* Decorative glow orbs ΓÇô match main website */}
+-                <div className="hidden md:block absolute top-1/4 left-1/4 w-96 h-96 bg-cyan-500/10 rounded-full blur-[120px] -z-10 animate-pulse pointer-events-none" />
+-                <div className="hidden md:block absolute bottom-0 right-1/4 w-96 h-96 bg-purple-500/10 rounded-full blur-[120px] -z-10 pointer-events-none" />
+-
+-                {/* SCROLL indicator ΓÇô matching main MusB Research website */}
+-                <button
+-                    onClick={() => {
+-                        const features = document.getElementById('features');
+-                        features?.scrollIntoView({ behavior: 'smooth' });
+-                    }}
+-                    className="hidden sm:flex absolute bottom-8 left-1/2 -translate-x-1/2 flex flex-col items-center gap-2 z-10 select-none cursor-pointer group/scroll hover:opacity-100 transition-opacity opacity-80"
+-                >
+-                    {/* Pill indicator with sliding dot inside */}
+-                    <div className="flex items-center gap-2">
+-                        {/* Scroll pill / mouse shape */}
+-                        <div className="w-8 h-4.5 rounded-full border border-cyan-400/40 group-hover:border-cyan-400/80 flex items-center justify-start px-1.5 overflow-hidden transition-colors">
+-                            <div className="w-1.5 h-1.5 bg-cyan-400 rounded-full animate-[scroll-dot_1.8s_ease-in-out_infinite] shadow-[0_0_8px_rgba(34,211,238,0.5)]" />
+-                        </div>
+-                        {/* static dot */}
+-                        <div className="w-2 h-2 rounded-full bg-white/20 group-hover:bg-white/40 transition-colors" />
+-                    </div>
+-                    {/* Spaced SCROLL text */}
+-                    <span className="text-[10px] font-black tracking-[0.5em] text-white/40 group-hover:text-white/70 uppercase transition-colors">Scroll</span>
+-                    {/* Animated vertical line */}
+-                    <div className="relative w-[1.5px] h-12 bg-white/5 overflow-hidden rounded-full">
+-                        <div className="absolute top-0 left-0 w-full h-1/2 bg-gradient-to-b from-transparent via-cyan-400 to-transparent animate-[scroll-line_2s_ease-in-out_infinite]" />
+-                    </div>
+-                </button>
+-            </section>
+-
+-
+-            {/* Feature Cards */}
+-            <section id="features" className="py-20 md:py-24 bg-slate-900/20">
+-                <Container className="grid grid-cols-1 md:grid-cols-3 gap-6 md:gap-8">
+-                    {[
+-                        {
+-                            icon: Globe,
+-                            title: "Global Reach",
+-                            desc: "Remote-first trials that reach patients anywhere, regardless of geography."
+-                        },
+-                        {
+-                            icon: ShieldCheck,
+-                            title: "HIPAA Compliant",
+-                            desc: "Highest standards of data security and privacy for every participant."
+-                        },
+-                        {
+-                            icon: Zap,
+-                            title: "Rapid Insights",
+-                            desc: "Real-time data collection means faster results and accelerated breakthroughs."
+-                        }
+-                    ].map((item, i) => (
+-                        <div key={i} className="glass p-6 md:p-8 rounded-3xl hover:border-cyan-500/50 transition-all group overflow-hidden">
+-                            <div className="w-12 h-12 bg-cyan-500/10 rounded-xl flex items-center justify-center mb-6 group-hover:scale-110 transition-transform shrink-0">
+-                                <item.icon className="text-cyan-400" />
+-                            </div>
+-                            <h3 className="text-lg sm:text-xl font-bold text-white mb-3 md:mb-4 pr-4">{item.title}</h3>
+-                            <p className="text-sm md:text-base text-slate-400 leading-relaxed max-w-prose">{item.desc}</p>
+-                        </div>
+-                    ))}
+-                </Container>
+-            </section>
+-
+-            {/* Compliance Section */}
+-            <section className="py-20 md:py-24 border-t border-white/5 relative overflow-hidden">
+-                <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[200%] h-[200%] md:w-full md:h-full bg-cyan-500/[0.02] blur-[120px] pointer-events-none" />
+-                <Container className="flex flex-col lg:flex-row items-center justify-between gap-12 relative z-10">
+-                    <div className="max-w-xl text-center lg:text-left">
+-                        <h2 className="text-2xl sm:text-3xl font-black text-white tracking-tight mb-4 sm:mb-6 uppercase">Trusted by Global Institutions</h2>
+-                        <p className="text-sm sm:text-base text-slate-200 leading-relaxed mb-6 sm:mb-8 mx-auto lg:mx-0 max-w-prose">
+-                            Our platform is built on the pillars of data integrity and patient safety. We adhere to the world's most stringent regulatory standards to ensure clinical data is secure, anonymous, and actionable.
+-                        </p>
+-                        <div className="flex flex-wrap justify-center lg:justify-start gap-3 sm:gap-4">
+-                            {['HIPAA', 'GDPR', 'SOC2', '21 CFR Part 11'].map(tag => (
+-                                <span key={tag} className="px-3 py-1.5 sm:px-4 sm:py-2 bg-slate-900 border border-white/10 rounded-xl text-[11px] sm:text-[13px] font-black text-slate-300 uppercase tracking-widest leading-none shrink-0 truncate max-w-full">
+-                                    {tag} Compliant
+-                                </span>
+-                            ))}
+-                        </div>
+-                    </div>
+-                    <div className="flex flex-wrap lg:flex-nowrap justify-center gap-3 sm:gap-4 w-full lg:w-auto">
+-                        {[
+-                            { label: 'Patient Privacy', icon: ShieldCheck, color: 'text-emerald-400' },
+-                            { label: 'Encrypted Data', icon: Zap, color: 'text-cyan-400' },
+-                            { label: 'Audit Ready', icon: Activity, color: 'text-indigo-400' }
+-                        ].map((badge, i) => (
+-                            <div key={i} className="glass p-5 md:p-6 rounded-2xl border border-white/5 flex flex-col items-center gap-2 md:gap-3 w-[140px] md:w-32 shrink-0">
+-                                <badge.icon className={badge.color} size={32} />
+-                                <span className="text-[11px] md:text-[13px] font-black text-slate-500 uppercase tracking-tighter text-center leading-tight">{badge.label}</span>
+-                            </div>
+-                        ))}
+-                    </div>
+-                </Container>
+-            </section>
+-        </div>
+-    );
++    redirect("https://www.musbhealth.com/");
+ }
+diff --git a/frontend/src/app/sponsor/dashboard/new-study/page.tsx b/frontend/src/app/sponsor/dashboard/new-study/page.tsx
+index 6883707..579654e 100644
+--- a/frontend/src/app/sponsor/dashboard/new-study/page.tsx
++++ b/frontend/src/app/sponsor/dashboard/new-study/page.tsx
+@@ -210,7 +210,9 @@ export default function NewStudyInquiryPage() {
+                         <button onClick={() => router.back()} className="p-2 text-slate-500 hover:text-white transition-colors">
+                             <ChevronLeft size={20} />
+                         </button>
+-                        <img src="/musb research.png" alt="MUSB Research" className="h-7 w-auto object-contain" />
++                        <a href="https://www.musbhealth.com/">
++                            <img src="/musb research.png" alt="MUSB Research" className="h-7 w-auto object-contain hover:opacity-80 transition-opacity" />
++                        </a>
+                         <div className="w-px h-5 bg-slate-800" />
+                         <span className="text-amber-400 text-[13px] font-black uppercase tracking-widest">Study Inquiry</span>
+                     </div>
+diff --git a/frontend/src/app/sponsor/dashboard/page.tsx b/frontend/src/app/sponsor/dashboard/page.tsx
+index 20df39a..044f112 100644
+--- a/frontend/src/app/sponsor/dashboard/page.tsx
++++ b/frontend/src/app/sponsor/dashboard/page.tsx
+@@ -309,7 +309,9 @@ export default function SponsorDashboard() {
+             <header className="border-b border-white/5 bg-[#0A1128]/90 backdrop-blur-xl sticky top-0 z-40">
+                 <div className="max-w-7xl mx-auto px-4 sm:px-6 py-4 flex items-center justify-between">
+                     <div className="flex items-center gap-2 sm:gap-4">
+-                        <img src="/musb research.png" alt="MUSB Research" className="h-6 sm:h-8 w-auto object-contain" />
++                        <a href="https://www.musbhealth.com/">
++                            <img src="/musb research.png" alt="MUSB Research" className="h-6 sm:h-8 w-auto object-contain hover:opacity-80 transition-opacity" />
++                        </a>
+                         <div className="w-px h-6 bg-slate-800 hidden xs:block" />
+                         <div className="hidden xs:flex items-center gap-2 px-3 py-1 bg-amber-500/10 border border-amber-500/20 rounded-full">
+                             <Microscope size={12} className="text-amber-400" />
+diff --git a/frontend/src/app/sponsor/login/page.tsx b/frontend/src/app/sponsor/login/page.tsx
+index 30dd3dfd..96421d8 100644
+--- a/frontend/src/app/sponsor/login/page.tsx
++++ b/frontend/src/app/sponsor/login/page.tsx
+@@ -130,9 +130,9 @@ export default function SponsorLoginPage() {
+ 
+                     <div className="relative z-10">
+                         <div className="text-center mb-10">
+-                            <Link href="/" className="inline-flex items-center gap-2 mb-6">
+-                                <img src="/musb research.png" alt="MUSB Research" className="h-10 w-auto object-contain" />
+-                            </Link>
++                            <a href="https://www.musbhealth.com/" className="inline-flex items-center gap-2 mb-6">
++                                <img src="/musb research.png" alt="MUSB Research" className="h-10 w-auto object-contain hover:opacity-80 transition-opacity" />
++                            </a>
+                             <h1 className="text-2xl font-black text-white italic tracking-tight mb-2">
+                                 Sponsor Access
+                             </h1>
+diff --git a/frontend/src/app/super-admin/login/page.tsx b/frontend/src/app/super-admin/login/page.tsx
+index 9c3b98f..7a4ffd9 100644
+--- a/frontend/src/app/super-admin/login/page.tsx
++++ b/frontend/src/app/super-admin/login/page.tsx
+@@ -131,9 +131,9 @@ export default function SuperAdminLoginPage() {
+                     <div className="relative z-10 p-10">
+                         {/* Header */}
+                         <div className="text-center mb-10">
+-                            <Link href="/" className="inline-flex items-center gap-2 mb-6">
+-                                <img src="/musb research.png" alt="MUSB Research" className="h-10 w-auto object-contain" />
+-                            </Link>
++                            <a href="https://www.musbhealth.com/" className="inline-flex items-center gap-2 mb-6">
++                                <img src="/musb research.png" alt="MUSB Research" className="h-10 w-auto object-contain hover:opacity-80 transition-opacity" />
++                            </a>
+ 
+                             {/* SA Icon */}
+                             <div className="mx-auto w-16 h-16 rounded-2xl bg-violet-600/20 border border-violet-500/30 flex items-center justify-center mb-4 shadow-lg shadow-violet-600/20">
+diff --git a/frontend/src/components/Footer.tsx b/frontend/src/components/Footer.tsx
+index ab7bbc2..05ee870 100644
+--- a/frontend/src/components/Footer.tsx
++++ b/frontend/src/components/Footer.tsx
+@@ -55,7 +55,7 @@ export default function Footer() {
+ 
+                     {/* LEFT COLUMN: Logo & Contact */}
+                     <div className="lg:col-span-4 space-y-8">
+-                        <Link href="/" className="inline-block mb-6 group">
++                        <a href="https://www.musbhealth.com/" className="inline-block mb-6 group">
+                             <div className="
+                                 flex items-center justify-center
+                                 bg-[#0d1b35] border border-white/10
+@@ -73,7 +73,7 @@ export default function Footer() {
+                                     className="h-12 w-auto object-contain"
+                                 />
+                             </div>
+-                        </Link>
++                        </a>
+ 
+                         <div className="space-y-4">
+                             <div className="flex items-start gap-3 group">
+diff --git a/frontend/src/components/Navbar.tsx b/frontend/src/components/Navbar.tsx
+index 29ae89b..41f9391 100644
+--- a/frontend/src/components/Navbar.tsx
++++ b/frontend/src/components/Navbar.tsx
+@@ -79,7 +79,7 @@ export default function Navbar() {
+             <div className="w-full max-w-[1550px] mx-auto px-6 md:px-12 lg:px-16 flex items-center justify-between gap-4">
+ 
+                 <div className="shrink-0 flex items-center">
+-                    <Link href="/" className="group bg-white px-4 sm:px-8 py-2 sm:py-3.5 rounded-xl sm:rounded-2xl shadow-[0_4px_20px_rgba(0,0,0,0.03)] hover:shadow-[0_8px_30px_rgba(0,0,0,0.08)] border border-slate-100 flex items-center transition-all duration-300 ease-in-out hover:scale-105 active:scale-95">
++                    <a href="https://www.musbhealth.com/" className="group bg-white px-4 sm:px-8 py-2 sm:py-3.5 rounded-xl sm:rounded-2xl shadow-[0_4px_20px_rgba(0,0,0,0.03)] hover:shadow-[0_8px_30px_rgba(0,0,0,0.08)] border border-slate-100 flex items-center transition-all duration-300 ease-in-out hover:scale-105 active:scale-95">
+                         <Image
+                             src="/musb research.png"
+                             alt="MUSB Research"
+@@ -88,7 +88,7 @@ export default function Navbar() {
+                             className="h-10 w-auto object-contain"
+                             priority
+                         />
+-                    </Link>
++                    </a>
+                 </div>
+ 
+                 {/* Deskrop Nav Links - Center part */}

@@ -26,7 +26,7 @@ export default function AdminLoginPage() {
                 if (ADMIN_ROLES.has(u.role?.toUpperCase())) {
                     if (!s.accessToken) {
                         await signOut({ redirect: false });
-                        window.location.href = "https://musbresearchwebsite-1.vercel.app/";
+                        window.location.href = "https://www.musbhealth.com/";
                         return;
                     }
 

@@ -184,7 +184,8 @@ export default function SponsorDashboard() {
 
     const handleSignOut = async () => {
         AdminAuth.clear();
-        await signOut({ callbackUrl: "https://www.musbhealth.com/" });
+        await signOut({ redirect: false });
+        window.location.href = "https://www.musbhealth.com/";
     };
 
     // Mock participants with PII for export (Special Sponsor Request)

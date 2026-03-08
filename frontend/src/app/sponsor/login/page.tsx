@@ -24,7 +24,7 @@ export default function SponsorLoginPage() {
             const sponsorRoles = ["SPONSOR", "SPONSOR_ADMIN", "STUDY_MANAGER", "VIEWER"];
             if (sponsorRoles.includes(u.role)) {
                 if (!s.accessToken) {
-                    signOut({ callbackUrl: "https://musbresearchwebsite-1.vercel.app/" });
+                    signOut({ callbackUrl: "https://www.musbhealth.com/" });
                     return;
                 }
 

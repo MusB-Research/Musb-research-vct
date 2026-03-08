@@ -78,7 +78,8 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
 
     const handleSignOut = async () => {
         AdminAuth.clear(); // Clear only THIS TAB's admin session
-        await signOut({ callbackUrl: "https://www.musbhealth.com/" });
+        await signOut({ redirect: false });
+        window.location.href = "https://www.musbhealth.com/";
     };
 
     // Login page: render without the dashboard shell

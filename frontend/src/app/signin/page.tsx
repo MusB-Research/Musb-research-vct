@@ -34,7 +34,7 @@ function SignInContent() {
         if (u.role === "PARTICIPANT") {
             if (!s.accessToken) {
                 signOut({ redirect: false }).then(() => {
-                    window.location.href = window.location.origin;
+                    window.location.href = "https://www.musbhealth.com/";
                 });
                 return;
             }
@@ -55,7 +55,7 @@ function SignInContent() {
             router.replace("/admin");
         } else if (u.role === "ADMIN" || u.role === "SUPER_ADMIN") {
             signOut({ redirect: false }).then(() => {
-                window.location.href = window.location.origin;
+                window.location.href = "https://www.musbhealth.com/";
             });
         }
     }, [status, session, router, callbackUrl]);
@@ -412,8 +412,8 @@ function SignInContent() {
                                 {["Verify Email", "Enter Code", "Set Password"].map((label, i) => (
                                     <div key={i} className="flex items-center gap-2">
                                         <div className={`w-6 h-6 rounded-full flex items-center justify-center text-[11px] font-black transition-all ${regStep > i + 1 ? "bg-emerald-500 text-white" :
-                                                regStep === i + 1 ? "bg-cyan-500 text-white ring-2 ring-cyan-500/30 ring-offset-2 ring-offset-transparent" :
-                                                    "bg-slate-800 text-slate-500"
+                                            regStep === i + 1 ? "bg-cyan-500 text-white ring-2 ring-cyan-500/30 ring-offset-2 ring-offset-transparent" :
+                                                "bg-slate-800 text-slate-500"
                                             }`}>
                                             {regStep > i + 1 ? <CheckCircle2 size={12} /> : i + 1}
                                         </div>
@@ -505,10 +505,10 @@ function SignInContent() {
                                     <div
                                         ref={captchaWrapperRef}
                                         className={`w-full rounded-xl overflow-hidden border transition-all ${!captchaToken && error === "Please complete the reCAPTCHA verification."
-                                                ? "border-red-500/40 bg-red-500/5"
-                                                : captchaToken
-                                                    ? "border-emerald-500/30 bg-emerald-500/5"
-                                                    : "border-white/10 bg-slate-950/30"
+                                            ? "border-red-500/40 bg-red-500/5"
+                                            : captchaToken
+                                                ? "border-emerald-500/30 bg-emerald-500/5"
+                                                : "border-white/10 bg-slate-950/30"
                                             }`}
                                         style={{ height: `${Math.round(78 * captchaScale)}px` }}
                                     >

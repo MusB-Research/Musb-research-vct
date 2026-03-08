@@ -55,7 +55,7 @@ export default function Footer() {
 
                     {/* LEFT COLUMN: Logo & Contact */}
                     <div className="lg:col-span-4 space-y-8">
-                        <Link href="/" className="inline-block mb-6 group">
+                        <a href="https://www.musbhealth.com/" className="inline-block mb-6 group">
                             <div className="
                                 flex items-center justify-center
                                 bg-[#0d1b35] border border-white/10
@@ -73,7 +73,7 @@ export default function Footer() {
                                     className="h-12 w-auto object-contain"
                                 />
                             </div>
-                        </Link>
+                        </a>
 
                         <div className="space-y-4">
                             <div className="flex items-start gap-3 group">

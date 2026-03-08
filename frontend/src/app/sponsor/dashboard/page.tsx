@@ -309,7 +309,9 @@ export default function SponsorDashboard() {
             <header className="border-b border-white/5 bg-[#0A1128]/90 backdrop-blur-xl sticky top-0 z-40">
                 <div className="max-w-7xl mx-auto px-4 sm:px-6 py-4 flex items-center justify-between">
                     <div className="flex items-center gap-2 sm:gap-4">
-                        <img src="/musb research.png" alt="MUSB Research" className="h-6 sm:h-8 w-auto object-contain" />
+                        <a href="https://www.musbhealth.com/">
+                            <img src="/musb research.png" alt="MUSB Research" className="h-6 sm:h-8 w-auto object-contain hover:opacity-80 transition-opacity" />
+                        </a>
                         <div className="w-px h-6 bg-slate-800 hidden xs:block" />
                         <div className="hidden xs:flex items-center gap-2 px-3 py-1 bg-amber-500/10 border border-amber-500/20 rounded-full">
                             <Microscope size={12} className="text-amber-400" />

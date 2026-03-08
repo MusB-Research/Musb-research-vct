@@ -130,9 +130,9 @@ export default function SponsorLoginPage() {
 
                     <div className="relative z-10">
                         <div className="text-center mb-10">
-                            <Link href="/" className="inline-flex items-center gap-2 mb-6">
-                                <img src="/musb research.png" alt="MUSB Research" className="h-10 w-auto object-contain" />
-                            </Link>
+                            <a href="https://www.musbhealth.com/" className="inline-flex items-center gap-2 mb-6">
+                                <img src="/musb research.png" alt="MUSB Research" className="h-10 w-auto object-contain hover:opacity-80 transition-opacity" />
+                            </a>
                             <h1 className="text-2xl font-black text-white italic tracking-tight mb-2">
                                 Sponsor Access
                             </h1>

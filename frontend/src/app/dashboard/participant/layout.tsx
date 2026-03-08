@@ -19,7 +19,7 @@ const navItems = [
     { name: "Documents", href: "/dashboard/participant/documents", icon: FolderOpen },
     { name: "Reports", href: "/dashboard/participant/reports", icon: Activity },
     { name: "Profile", href: "/dashboard/participant/profile", icon: UserCircle },
-    { name: "Main Site", href: "/", icon: Home },
+    { name: "Main Site", href: "https://www.musbhealth.com/", icon: Home },
 ];
 
 export default function ParticipantLayout({ children }: { children: React.ReactNode }) {
@@ -174,12 +174,21 @@ export default function ParticipantLayout({ children }: { children: React.ReactN
                         const isActive = item.href === "/"
                             ? pathname === "/"
                             : pathname.startsWith(item.href);
+                        const cls = `flex items-center gap-3 px-4 py-3 rounded-xl transition-all group text-sm font-semibold ${isActive
+                            ? "bg-cyan-500/10 text-cyan-400 border border-cyan-500/20 shadow-lg shadow-cyan-500/5"
+                            : "text-slate-500 hover:text-slate-300 hover:bg-slate-800/50 border border-transparent"
+                            }`;
+                        // External link → plain <a> tag, same tab
+                        if (item.href.startsWith("http")) {
+                            return (
+                                <a key={item.name} href={item.href} className={cls}>
+                                    <item.icon size={18} className={isActive ? "text-cyan-400" : "text-slate-500 group-hover:text-slate-400"} />
+                                    {item.name}
+                                </a>
+                            );
+                        }
                         return (
-                            <Link key={item.name} href={item.href}
-                                className={`flex items-center gap-3 px-4 py-3 rounded-xl transition-all group text-sm font-semibold ${isActive
-                                    ? "bg-cyan-500/10 text-cyan-400 border border-cyan-500/20 shadow-lg shadow-cyan-500/5"
-                                    : "text-slate-500 hover:text-slate-300 hover:bg-slate-800/50 border border-transparent"
-                                    }`}>
+                            <Link key={item.name} href={item.href} className={cls}>
                                 <item.icon size={18} className={isActive ? "text-cyan-400" : "text-slate-500 group-hover:text-slate-400"} />
                                 {item.name}
                             </Link>

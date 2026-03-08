@@ -79,7 +79,7 @@ export default function Navbar() {
             <div className="w-full max-w-[1550px] mx-auto px-6 md:px-12 lg:px-16 flex items-center justify-between gap-4">
 
                 <div className="shrink-0 flex items-center">
-                    <Link href="/" className="group bg-white px-4 sm:px-8 py-2 sm:py-3.5 rounded-xl sm:rounded-2xl shadow-[0_4px_20px_rgba(0,0,0,0.03)] hover:shadow-[0_8px_30px_rgba(0,0,0,0.08)] border border-slate-100 flex items-center transition-all duration-300 ease-in-out hover:scale-105 active:scale-95">
+                    <a href="https://www.musbhealth.com/" className="group bg-white px-4 sm:px-8 py-2 sm:py-3.5 rounded-xl sm:rounded-2xl shadow-[0_4px_20px_rgba(0,0,0,0.03)] hover:shadow-[0_8px_30px_rgba(0,0,0,0.08)] border border-slate-100 flex items-center transition-all duration-300 ease-in-out hover:scale-105 active:scale-95">
                         <Image
                             src="/musb research.png"
                             alt="MUSB Research"
@@ -88,7 +88,7 @@ export default function Navbar() {
                             className="h-10 w-auto object-contain"
                             priority
                         />
-                    </Link>
+                    </a>
                 </div>
 
                 {/* Deskrop Nav Links - Center part */}

@@ -210,7 +210,9 @@ export default function NewStudyInquiryPage() {
                         <button onClick={() => router.back()} className="p-2 text-slate-500 hover:text-white transition-colors">
                             <ChevronLeft size={20} />
                         </button>
-                        <img src="/musb research.png" alt="MUSB Research" className="h-7 w-auto object-contain" />
+                        <a href="https://www.musbhealth.com/">
+                            <img src="/musb research.png" alt="MUSB Research" className="h-7 w-auto object-contain hover:opacity-80 transition-opacity" />
+                        </a>
                         <div className="w-px h-5 bg-slate-800" />
                         <span className="text-amber-400 text-[13px] font-black uppercase tracking-widest">Study Inquiry</span>
                     </div>

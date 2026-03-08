@@ -87,7 +87,9 @@ export default function ForgotPasswordPage() {
                     <div className="relative z-10">
                         <div className="text-center mb-10">
                             <Link href="/" className="inline-flex items-center gap-2 mb-6">
-                                <img src="/musb research.png" alt="MUSB Research" className="h-10 w-auto object-contain filter drop-shadow-[0_0_15px_rgba(255,255,255,0.2)]" />
+                                <a href="https://www.musbhealth.com/">
+                                    <img src="/musb research.png" alt="MUSB Research" className="h-10 w-auto object-contain filter drop-shadow-[0_0_15px_rgba(255,255,255,0.2)] hover:opacity-80 transition-opacity" />
+                                </a>
                             </Link>
                             <h1 className="text-2xl font-black text-white italic tracking-tight mb-2">
                                 {step === 3 ? "Password Reset" : "Forgot Password?"}

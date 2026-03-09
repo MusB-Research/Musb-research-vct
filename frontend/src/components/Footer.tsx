@@ -68,9 +68,9 @@ export default function Footer() {
                                 <Image
                                     src="/musb research.png"
                                     alt="MUSB Research Logo"
-                                    width={200}
-                                    height={52}
-                                    className="h-12 w-auto object-contain"
+                                    width={250}
+                                    height={64}
+                                    className="h-16 w-auto object-contain"
                                 />
                             </div>
                         </a>
@@ -109,19 +109,19 @@ export default function Footer() {
                             <div>
                                 <h4 className="text-white font-black text-[13px] uppercase tracking-widest mb-6">Solutions</h4>
                                 <ul className="space-y-4">
-                                    <li><Link href="/business" className="text-slate-400 hover:text-white text-sm transition-colors">For Businesses</Link></li>
-                                    <li><Link href="/patients" className="text-slate-400 hover:text-white text-sm transition-colors">For Patients</Link></li>
-                                    <li><Link href="/innovation" className="text-slate-400 hover:text-white text-sm transition-colors">Innovation</Link></li>
-                                    <li><Link href="/studies" className="text-slate-400 hover:text-white text-sm transition-colors">Join a Study!</Link></li>
+                                    <li><a href="https://www.musbhealth.com/" className="text-slate-400 hover:text-white text-sm transition-colors">For Businesses</a></li>
+                                    <li><a href="https://www.musbhealth.com/" className="text-slate-400 hover:text-white text-sm transition-colors">For Patients</a></li>
+                                    <li><a href="https://www.musbhealth.com/" className="text-slate-400 hover:text-white text-sm transition-colors">Innovation</a></li>
+                                    <li><a href="https://www.musbhealth.com/" className="text-slate-400 hover:text-white text-sm transition-colors">Join a Study!</a></li>
                                 </ul>
                             </div>
                             <div>
                                 <h4 className="text-white font-black text-[13px] uppercase tracking-widest mb-6">MUSB Group</h4>
                                 <ul className="space-y-4">
-                                    <li><Link href="/about" className="text-slate-400 hover:text-white text-sm transition-colors">About Us</Link></li>
-                                    <li><Link href="/news" className="text-slate-400 hover:text-white text-sm transition-colors">News & Events</Link></li>
-                                    <li><Link href="/careers" className="text-slate-400 hover:text-white text-sm transition-colors">Careers</Link></li>
-                                    <li><Link href="/contact" className="text-slate-400 hover:text-white text-sm transition-colors">Contact Us</Link></li>
+                                    <li><a href="https://www.musbhealth.com/" className="text-slate-400 hover:text-white text-sm transition-colors">About Us</a></li>
+                                    <li><a href="https://www.musbhealth.com/" className="text-slate-400 hover:text-white text-sm transition-colors">News & Events</a></li>
+                                    <li><a href="https://www.musbhealth.com/" className="text-slate-400 hover:text-white text-sm transition-colors">Careers</a></li>
+                                    <li><a href="https://www.musbhealth.com/" className="text-slate-400 hover:text-white text-sm transition-colors">Contact Us</a></li>
                                 </ul>
                             </div>
                         </div>

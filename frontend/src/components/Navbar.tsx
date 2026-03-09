@@ -10,24 +10,14 @@ import { motion, AnimatePresence } from "framer-motion";
 import { ParticipantAuth, AdminAuth } from "@/lib/portal-auth";
 
 const links = [
-    { name: "FOR BUSINESSES", href: "/business" },
-    { name: "FOR PATIENTS", href: "/patients" },
-    {
-        name: "ABOUT US",
-        href: "/about",
-        hasDropdown: true,
-        submenu: [
-            { name: "Why Choose MusB Research", href: "/about#why-us" },
-            { name: "Capabilities", href: "/about#capabilities" },
-            { name: "Facilities", href: "/about#facilities" },
-            { name: "Our Team", href: "/about/team" },
-            { name: "Find A Study", href: "/studies" },
-        ]
-    },
-    { name: "INNOVATION", href: "/innovation" },
-    { name: "NEWS & EVENTS", href: "/news" },
-    { name: "CAREERS", href: "/careers" },
-    { name: "CONTACT US", href: "/contact" },
+    { name: "FOR BUSINESSES", href: "https://www.musbhealth.com" },
+    { name: "FOR PATIENTS", href: "https://www.musbhealth.com" },
+    { name: "ABOUT US", href: "https://www.musbhealth.com" },
+    { name: "INNOVATION", href: "https://www.musbhealth.com" },
+    { name: "NEWS & EVENTS", href: "https://www.musbhealth.com" },
+    { name: "CAREERS", href: "https://www.musbhealth.com" },
+    { name: "CONTACT US", href: "https://www.musbhealth.com" },
+
 ];
 
 export default function Navbar() {
@@ -79,13 +69,13 @@ export default function Navbar() {
             <div className="w-full max-w-[1550px] mx-auto px-6 md:px-12 lg:px-16 flex items-center justify-between gap-4">
 
                 <div className="shrink-0 flex items-center">
-                    <a href="https://www.musbhealth.com/" className="group bg-white px-4 sm:px-8 py-2 sm:py-3.5 rounded-xl sm:rounded-2xl shadow-[0_4px_20px_rgba(0,0,0,0.03)] hover:shadow-[0_8px_30px_rgba(0,0,0,0.08)] border border-slate-100 flex items-center transition-all duration-300 ease-in-out hover:scale-105 active:scale-95">
+                    <a href="https://www.musbhealth.com/" className="group bg-white px-3 sm:px-6 py-1.5 sm:py-[9px] rounded-xl sm:rounded-2xl shadow-[0_4px_20px_rgba(0,0,0,0.03)] hover:shadow-[0_8px_30px_rgba(0,0,0,0.08)] border border-slate-100 flex items-center transition-all duration-300 ease-in-out hover:scale-105 active:scale-95">
                         <Image
                             src="/musb research.png"
                             alt="MUSB Research"
-                            width={160}
-                            height={40}
-                            className="h-10 w-auto object-contain"
+                            width={200}
+                            height={52}
+                            className="h-11 sm:h-[50px] w-auto object-contain"
                             priority
                         />
                     </a>
@@ -94,18 +84,15 @@ export default function Navbar() {
                 {/* Deskrop Nav Links - Center part */}
                 <div className="hidden xl:flex items-center gap-6 2xl:gap-11">
                     {links.map((link) => {
-                        const isActive = pathname === link.href || (link.hasDropdown && pathname.startsWith(link.href));
+                        const isActive = pathname === link.href;
                         return (
                             <div key={link.name} className="relative group/nav h-full flex items-center shrink-0">
-                                <Link
+                                <a
                                     href={link.href}
                                     className={`text-[11px] font-black leading-tight tracking-[0.12em] whitespace-nowrap transition-all duration-300 flex items-center gap-1.5 py-8 ${isActive ? "text-cyan-600" : "text-slate-900 hover:text-cyan-600"
                                         }`}
                                 >
                                     {link.name}
-                                    {link.hasDropdown && (
-                                        <ChevronDown size={12} className={`transition-transform duration-300 ${isActive ? "text-cyan-600" : "text-slate-400"} group-hover/nav:rotate-180`} />
-                                    )}
                                     {/* Active Indicator Bar */}
                                     {isActive && (
                                         <motion.div
@@ -114,24 +101,7 @@ export default function Navbar() {
                                             transition={{ type: "spring", stiffness: 380, damping: 30 }}
                                         />
                                     )}
-                                </Link>
-
-                                {/* Dropdown Logic */}
-                                {link.hasDropdown && (
-                                    <div className="absolute top-full left-1/2 -translate-x-1/2 pt-2 opacity-0 pointer-events-none group-hover/nav:opacity-100 group-hover/nav:pointer-events-auto transition-all duration-300 transform scale-95 group-hover/nav:scale-100">
-                                        <div className="bg-white border border-slate-100 shadow-2xl rounded-2xl p-4 min-w-[220px]">
-                                            {link.submenu?.map((sub) => (
-                                                <Link
-                                                    key={sub.name}
-                                                    href={sub.href}
-                                                    className="block py-2 px-3 text-[11px] font-bold text-slate-600 hover:text-cyan-600 hover:bg-slate-50 rounded-lg transition-all"
-                                                >
-                                                    {sub.name}
-                                                </Link>
-                                            ))}
-                                        </div>
-                                    </div>
-                                )}
+                                </a>
                             </div>
                         );
                     })}
@@ -139,13 +109,13 @@ export default function Navbar() {
 
                 {/* Right Actions - Buttons matching screenshot exactly */}
                 <div className="flex items-center gap-3">
-                    <Link
-                        href="/studies"
+                    <a
+                        href="https://www.musbhealth.com/"
                         className="hidden xl:flex bg-cyan-500 text-slate-900 px-8 py-3 rounded-xl text-[12px] font-black tracking-[0.1em] items-center gap-2 shadow-[0_4px_15px_rgba(6,182,212,0.15)] hover:bg-white border border-transparent hover:border-slate-100 transition-all duration-300 transform hover:-translate-y-0.5 active:scale-95 whitespace-nowrap"
                     >
                         JOIN A STUDY
                         <ArrowRight size={18} className="stroke-[3px]" />
-                    </Link>
+                    </a>
 
                     {status === "authenticated" ? (
                         <div className="hidden xl:flex items-center gap-3 ml-2 pl-4 border-l border-slate-200">
@@ -210,28 +180,28 @@ export default function Navbar() {
 
                             <div className="flex flex-col gap-6">
                                 {links.map((link) => (
-                                    <Link
+                                    <a
                                         key={link.name}
                                         href={link.href}
                                         onClick={() => setIsMobileMenuOpen(false)}
                                         className="text-slate-800 text-lg font-black uppercase tracking-widest hover:text-cyan-500 transition-colors"
                                     >
                                         {link.name}
-                                    </Link>
+                                    </a>
                                 ))}
                             </div>
 
                             <div className="mt-auto space-y-4 pt-8 border-t border-slate-100">
                                 {status === "unauthenticated" ? (
                                     <>
-                                        <Link
-                                            href="/studies"
+                                        <a
+                                            href="https://www.musbhealth.com/"
                                             className="w-full bg-[#00BCD4] text-white py-4 rounded-xl text-center font-black uppercase tracking-widest shadow-lg shadow-cyan-500/20 active:scale-[0.98] transition-transform flex items-center justify-center gap-2"
                                             onClick={() => setIsMobileMenuOpen(false)}
                                         >
                                             Join A Study
                                             <ArrowRight size={18} />
-                                        </Link>
+                                        </a>
                                         <Link
                                             href="/signin"
                                             className="w-full bg-[#0F172A] text-white py-4 rounded-xl text-center font-black uppercase tracking-widest active:scale-[0.98] transition-transform flex items-center justify-center gap-2"

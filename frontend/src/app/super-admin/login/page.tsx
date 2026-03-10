@@ -132,7 +132,7 @@ export default function SuperAdminLoginPage() {
                         {/* Header */}
                         <div className="text-center mb-10">
                             <a href="https://www.musbhealth.com/" className="inline-flex items-center gap-2 mb-6">
-                                <img src="/musb research.png" alt="MUSB Research" className="h-10 w-auto object-contain hover:opacity-80 transition-opacity" />
+                                <img src="/musb research.png" alt="MUSB Research" className="h-10 w-auto object-contain rounded-xl hover:opacity-80 transition-opacity" />
                             </a>
 
                             {/* SA Icon */}

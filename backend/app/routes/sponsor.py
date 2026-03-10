@@ -1,10 +1,18 @@
-from datetime import datetime, timezone
+from datetime import datetime, timezone, timedelta
 from typing import List, Optional
-from fastapi import APIRouter, Depends, HTTPException, Query, Request, BackgroundTasks
+from fastapi import APIRouter, Depends, HTTPException, Query, Request, BackgroundTasks, File, UploadFile, Form
 from pydantic import BaseModel
+import re
+import jwt
+import json as _json
+from bson import ObjectId
 
 from app.database import get_db
-from app.auth import get_current_user
+from app.auth import get_current_user, create_access_token, decode_token, get_password_hash
+from app.models import StudyCreate, StudyOut, TeamMemberInvite, TeamMemberUpdate, TeamMemberSetPassword, TeamMemberOut
+from app.utils.security import encrypt_data, decrypt_data, validate_password
+from app.utils.email import notify_admin_new_study_inquiry, notify_team_invitation
+from app.config import get_settings
 
 router = APIRouter(prefix="/api/sponsor", tags=["Sponsor"])
 
@@ -47,17 +55,33 @@ async def sponsor_stats(
     elif current_user.role in ("STUDY_MANAGER", "VIEWER"):
         user = await db["users"].find_one({"_id": ObjectId(current_user.user_id)})
         assigned_studies = user.get("assignedStudies", [])
-        # Provide string objects to a search using stringified IDs or ObjectIds depending on schema
         query["_id"] = {"$in": [ObjectId(sid) for sid in assigned_studies if ObjectId.is_valid(sid)]}
 
-    total_studies = await db["studies"].count_documents(query)
+    # Count from both VCT and API Study collections
+    total_studies = await db["studies"].count_documents(query) + await db["api_study"].count_documents(query)
     
     active_query = query.copy()
-    active_query["status"] = {"$in": ["ACTIVE", "RECRUITING"]}
-    active_studies = await db["studies"].count_documents(active_query)
-    total_participants = await db["participants"].count_documents({})
-    enrolled = await db["participants"].count_documents({"status": {"$in": ["ENROLLED", "ACTIVE", "COMPLETED"]}})
-    completed = await db["participants"].count_documents({"status": "COMPLETED"})
+    # Support both case variations
+    active_query["status"] = {"$in": ["ACTIVE", "RECRUITING", "Recruiting", "Active"]}
+    active_studies = await db["studies"].count_documents(active_query) + await db["api_study"].count_documents(active_query)
+    
+    # Find all acceptable study IDs for this sponsor
+    allowed_study_ids = set()
+    async for s in db["studies"].find(query, {"_id": 1}):
+        allowed_study_ids.add(str(s["_id"]))
+    async for s in db["api_study"].find(query, {"_id": 1}):
+        allowed_study_ids.add(str(s["_id"]))
+
+    participant_query = {"studyId": {"$in": list(allowed_study_ids)}}
+
+    total_participants = await db["participants"].count_documents(participant_query)
+    
+    enrolled_query = {"studyId": {"$in": list(allowed_study_ids)}, "status": {"$in": ["ENROLLED", "ACTIVE", "COMPLETED"]}}
+    enrolled = await db["participants"].count_documents(enrolled_query)
+    
+    completed_query = {"studyId": {"$in": list(allowed_study_ids)}, "status": "COMPLETED"}
+    completed = await db["participants"].count_documents(completed_query)
+    
     completion_rate = round((completed / total_participants * 100) if total_participants > 0 else 0, 1)
 
     return SponsorStatsOut(
@@ -91,6 +115,8 @@ async def sponsor_studies(
         query["_id"] = {"$in": [ObjectId(sid) for sid in assigned_studies if ObjectId.is_valid(sid)]}
 
     result = []
+    
+    # 1. Fetch from studies (Module A)
     async for study in db["studies"].find(query).sort("createdAt", -1).limit(50):
         study_id = str(study["_id"])
         total = await db["participants"].count_documents({"studyId": study_id})
@@ -112,17 +138,40 @@ async def sponsor_studies(
             condition=study.get("condition"),
             createdAt=study.get("createdAt", datetime.now(timezone.utc)),
         ))
-    return result
+
+    # 2. Fetch from api_study (Module B)
+    # Avoid duplicates if some IDs overlap for some reason (rare but safe)
+    existing_ids = {s.id for s in result}
+    async for study in db["api_study"].find(query).sort("created_at", -1).limit(50):
+        study_id = str(study["_id"])
+        if study_id in existing_ids: continue
+        
+        total = await db["participants"].count_documents({"studyId": study_id})
+        enrolled = await db["participants"].count_documents({
+            "studyId": study_id,
+            "status": {"$in": ["ENROLLED", "ACTIVE", "COMPLETED"]}
+        })
+        completed = await db["participants"].count_documents({
+            "studyId": study_id,
+            "status": "COMPLETED"
+        })
+        result.append(SponsorStudyOut(
+            id=study_id,
+            title=study["title"],
+            status=study.get("status", "Recruiting"),
+            participantCount=total,
+            enrolledCount=enrolled,
+            completedCount=completed,
+            condition=study.get("condition"),
+            createdAt=study.get("created_at", datetime.now(timezone.utc)),
+        ))
+
+    # Sort combined result by createdAt descending
+    result.sort(key=lambda x: x.createdAt, reverse=True)
+    return result[:50]
 
 
 # ─── Sponsor: Launch New Study ────────────────────────────────────────────────
-
-from app.models import StudyCreate, StudyOut
-import re
-from bson import ObjectId
-from app.utils.email import notify_admin_new_study_inquiry
-from app.utils.security import decrypt_data
-from app.config import get_settings
 
 @router.post("/studies", response_model=StudyOut)
 async def launch_study(
@@ -150,14 +199,26 @@ async def launch_study(
     doc["createdAt"] = datetime.now(timezone.utc)
     doc["updatedAt"] = datetime.now(timezone.utc)
 
-    # If it's being submitted as an inquiry, set status to UNDER_REVIEW and notify admin
-    is_inquiry = False
-    if doc.get("status") in ("PUBLISHED", "UNDER_REVIEW"):
-        doc["status"] = "UNDER_REVIEW"
-        is_inquiry = True
+    # ── Map for Module B (api_study) schema ──
+    doc["created_at"] = doc["createdAt"]
+    doc["updated_at"] = doc["updatedAt"]
+    doc["is_active"] = True  # Sponsor requested it to show directly on main website
+    
+    # Map status to something consistent with website
+    orig_status = doc.get("status")
+    if orig_status == "ACTIVE":
+        doc["status"] = "Recruiting"
+    elif orig_status == "PUBLISHED":
+        doc["status"] = "Recruiting"
+    elif orig_status == "UNDER_REVIEW":
+        doc["status"] = "Under Review"
 
-    result = await db["studies"].insert_one(doc)
-    created = await db["studies"].find_one({"_id": result.inserted_id})
+    # Insert into api_study as per user request (unified source for website)
+    result = await db["api_study"].insert_one(doc)
+    created = await db["api_study"].find_one({"_id": result.inserted_id})
+    
+    # Also notify admin if it's an inquiry
+    is_inquiry = orig_status in ("PUBLISHED", "UNDER_REVIEW")
     
     # Send Notification to Admin if it's a new inquiry
     if is_inquiry:
@@ -209,14 +270,19 @@ async def get_study_details(
     if current_user.role not in ("SPONSOR", "SPONSOR_ADMIN", "STUDY_MANAGER", "VIEWER", "ADMIN", "COORDINATOR"):
         raise HTTPException(status_code=403, detail="Insufficient permissions")
 
-    study = await db["studies"].find_one({"slug": slug})
+    # Try both collections
+    study = await db["api_study"].find_one({"slug": slug})
+    if not study:
+        study = await db["studies"].find_one({"slug": slug})
+    
     if not study:
         # Fallback to ID
         from bson import ObjectId
-        try:
-            study = await db["studies"].find_one({"_id": ObjectId(slug)})
-        except:
-            study = None
+        if ObjectId.is_valid(slug):
+            obj_id = ObjectId(slug)
+            study = await db["api_study"].find_one({"_id": obj_id})
+            if not study:
+                study = await db["studies"].find_one({"_id": obj_id})
 
     if not study:
         raise HTTPException(status_code=404, detail="Study not found")
@@ -225,11 +291,11 @@ async def get_study_details(
         if current_user.role in ("SPONSOR", "SPONSOR_ADMIN"):
              sponsor_id = getattr(current_user, "parent_sponsor_id", None) or current_user.user_id
              if study.get("sponsorId") != sponsor_id:
-                 raise HTTPException(status_code=403, detail="You do not have access to this study")
+                  raise HTTPException(status_code=403, detail="You do not have access to this study")
         elif current_user.role in ("STUDY_MANAGER", "VIEWER"):
              user = await db["users"].find_one({"_id": ObjectId(current_user.user_id)})
              if str(study["_id"]) not in user.get("assignedStudies", []):
-                 raise HTTPException(status_code=403, detail="You are not assigned to this study")
+                  raise HTTPException(status_code=403, detail="You are not assigned to this study")
 
     study["id"] = str(study.pop("_id"))
     return study
@@ -246,14 +312,22 @@ async def update_study(
     if current_user.role not in ("SPONSOR", "SPONSOR_ADMIN", "STUDY_MANAGER", "ADMIN"):
         raise HTTPException(status_code=403, detail="Insufficient permissions to edit study")
 
-    # Find study
-    study = await db["studies"].find_one({"slug": slug})
+    # Find study in both collections
+    study = await db["api_study"].find_one({"slug": slug})
+    collection_name = "api_study"
+    if not study:
+        study = await db["studies"].find_one({"slug": slug})
+        collection_name = "studies"
+        
     if not study:
         from bson import ObjectId
-        try:
-            study = await db["studies"].find_one({"_id": ObjectId(slug)})
-        except:
-            study = None
+        if ObjectId.is_valid(slug):
+            obj_id = ObjectId(slug)
+            study = await db["api_study"].find_one({"_id": obj_id})
+            collection_name = "api_study"
+            if not study:
+                study = await db["studies"].find_one({"_id": obj_id})
+                collection_name = "studies"
     
     if not study:
         raise HTTPException(status_code=404, detail="Study not found")
@@ -274,17 +348,21 @@ async def update_study(
     update_data = {k: v for k, v in study_update.items() if k not in ("id", "_id", "createdAt", "sponsorId")}
     update_data["updatedAt"] = datetime.now(timezone.utc)
     
-    await db["studies"].update_one({"_id": study["_id"]}, {"$set": update_data})
+    # Sync with Module B fields if updating in api_study
+    if collection_name == "api_study":
+        update_data["updated_at"] = update_data["updatedAt"]
+        if "status" in update_data:
+            if update_data["status"] == "ACTIVE": update_data["status"] = "Recruiting"
+            elif update_data["status"] == "UNDER_REVIEW": update_data["status"] = "Under Review"
     
-    updated = await db["studies"].find_one({"_id": study["_id"]})
+    await db[collection_name].update_one({"_id": study["_id"]}, {"$set": update_data})
+    
+    updated = await db[collection_name].find_one({"_id": study["_id"]})
     updated["id"] = str(updated.pop("_id"))
     return updated
 
 
 # ─── Sponsor: Study Inquiry Lead ──────────────────────────────────────────────
-
-from fastapi import File, UploadFile, Form
-import json as _json
 
 @router.post("/lead")
 async def submit_lead(
@@ -435,12 +513,6 @@ Lead ID: {lead_id}
 
 # ─── Sponsor: Team Management ──────────────────────────────────────────────────
 
-from app.models import TeamMemberInvite, TeamMemberUpdate, TeamMemberSetPassword, TeamMemberOut
-from app.auth import create_access_token, decode_token, get_password_hash
-from app.utils.email import notify_team_invitation
-from datetime import timedelta
-import jwt
-
 @router.post("/team/invite")
 async def invite_team_member(
     request: Request,
@@ -534,7 +606,11 @@ async def setup_team_password(
     if user.get("status") == "ACTIVE":
         raise HTTPException(status_code=400, detail="Account is already activated. Please login.")
 
-    # 3. Set Password and Activate
+    # 3. Validate & Set Password and Activate
+    is_valid, reason = validate_password(body.password)
+    if not is_valid:
+        raise HTTPException(status_code=400, detail=reason)
+
     hashed_pw = get_password_hash(body.password)
     now = datetime.now(timezone.utc)
     

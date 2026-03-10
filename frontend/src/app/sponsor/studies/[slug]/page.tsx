@@ -83,8 +83,11 @@ export default function StudyManager() {
             <header className="border-b border-white/5 bg-slate-950/80 backdrop-blur-xl sticky top-0 z-40">
                 <div className="max-w-7xl mx-auto px-6 py-4 flex items-center justify-between">
                     <div className="flex items-center gap-4">
-                        <Link href="/sponsor/dashboard" className="p-2 text-slate-500 hover:text-white transition-colors bg-white/5 rounded-xl">
+                        <Link href="/sponsor/dashboard" className="p-2 text-slate-500 hover:text-white transition-colors bg-white/5 rounded-xl flex items-center gap-3 pr-4 group">
                             <ArrowLeft size={18} />
+                            <div className="bg-white px-3 py-1.5 rounded-full shadow-lg transition-transform group-hover:scale-[1.02]">
+                                <img src="/musb research.png" alt="MUSB Research" className="h-4.5 w-auto object-contain" />
+                            </div>
                         </Link>
                         <div>
                             <div className="flex items-center gap-3">
@@ -123,7 +126,6 @@ export default function StudyManager() {
                         { id: "dashboard", label: "Overview", icon: LayoutDashboard },
                         { id: "protocol", label: "Edit Protocol", icon: Edit3 },
                         { id: "recruitment", label: "Recruitment", icon: Target },
-                        { id: "finance", label: "Compensation", icon: DollarSign },
                         { id: "settings", label: "Confidentiality", icon: Shield },
                     ].map((tab) => (
                         <button
@@ -307,22 +309,6 @@ export default function StudyManager() {
                         </div>
                     )}
 
-                    {/* ── Finance Tab ── */}
-                    {activeTab === "finance" && (
-                        <div className="glass p-12 rounded-3xl border border-white/5 bg-slate-900/40 text-center space-y-6">
-                            <div className="w-20 h-20 rounded-full bg-amber-500/10 flex items-center justify-center mx-auto mb-6">
-                                <DollarSign size={32} className="text-amber-500" />
-                            </div>
-                            <h3 className="text-xl font-black italic uppercase italic">Financial Management</h3>
-                            <p className="text-slate-500 text-sm max-w-md mx-auto leading-relaxed">
-                                Review distribution logs, modify participant reimbursement rates, and adjust protocol budget allocations in real-time.
-                            </p>
-                            <div className="flex justify-center gap-4 pt-6">
-                                <button className="px-6 py-3 bg-white/5 border border-white/10 rounded-2xl text-[13px] font-black uppercase tracking-widest text-slate-300">View Invoices</button>
-                                <button className="px-6 py-3 bg-amber-600 rounded-2xl text-[13px] font-black uppercase tracking-widest text-white">Adjust Compensation</button>
-                            </div>
-                        </div>
-                    )}
 
                     {/* ── Settings Tab ── */}
                     {activeTab === "settings" && (

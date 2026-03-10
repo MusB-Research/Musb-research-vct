@@ -76,7 +76,7 @@ export default function CookieConsent() {
                                     >
                                         <div className="p-3 bg-slate-800/50 rounded-lg border border-slate-700/50 text-xs text-slate-400 space-y-2">
                                             <div className="flex items-center gap-2">
-                                                <input type="checkbox" checked disabled className="accent-cyan-400" />
+                                                <input type="checkbox" checked readOnly disabled className="accent-cyan-400" />
                                                 <span><strong>Strictly Necessary:</strong> Required for secure login and platform functionality (HIPAA compliance features).</span>
                                             </div>
                                             <div className="flex items-center gap-2">

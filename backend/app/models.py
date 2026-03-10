@@ -367,6 +367,7 @@ class TokenData(BaseModel):
     user_id: str
     email: Optional[str] = None
     role: Optional[str] = None
+    name: Optional[str] = None
     modules: Optional[list] = []
     parent_sponsor_id: Optional[str] = None
 
@@ -453,6 +454,15 @@ class PasswordResetRequest(BaseModel):
     email: str
     newPassword: str
     code: str
+
+
+class ResetLinkRequest(BaseModel):
+    email: str
+
+
+class PasswordResetConfirm(BaseModel):
+    token: str
+    newPassword: str
 
 
 class UpdatePassword(BaseModel):

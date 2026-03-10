@@ -2,14 +2,14 @@ import { useState, useEffect } from "react";
 import { Users, Mail, Shield, AlertTriangle, Loader2, Plus, Edit, Trash2, CheckCircle2, ChevronDown, Lock } from "lucide-react";
 import { AdminAuth } from "@/lib/portal-auth";
 
-export default function TeamManagementTab({ studies }: { studies: any[] }) {
+export default function TeamManagementTab({ studies, autoInvite = false }: { studies: any[], autoInvite?: boolean }) {
     const [members, setMembers] = useState<any[]>([]);
     const [loading, setLoading] = useState(true);
     const [actionLoading, setActionLoading] = useState(false);
     const [error, setError] = useState("");
     const [success, setSuccess] = useState("");
 
-    const [showInviteModal, setShowInviteModal] = useState(false);
+    const [showInviteModal, setShowInviteModal] = useState(autoInvite);
     const [inviteForm, setInviteForm] = useState({ name: "", email: "", role: "VIEWER", assignedStudies: [] as string[] });
 
     const [editingMember, setEditingMember] = useState<any | null>(null);
@@ -195,8 +195,8 @@ export default function TeamManagementTab({ studies }: { studies: any[] }) {
                                         </td>
                                         <td className="p-4">
                                             <span className={`px-2 py-1 rounded-full text-[10px] font-black tracking-widest uppercase border ${m.role === 'SPONSOR_ADMIN' ? 'bg-amber-500/10 text-amber-400 border-amber-500/20' :
-                                                    m.role === 'STUDY_MANAGER' ? 'bg-cyan-500/10 text-cyan-400 border-cyan-500/20' :
-                                                        'bg-slate-800 text-slate-400 border-white/10'
+                                                m.role === 'STUDY_MANAGER' ? 'bg-cyan-500/10 text-cyan-400 border-cyan-500/20' :
+                                                    'bg-slate-800 text-slate-400 border-white/10'
                                                 }`}>
                                                 {m.role.replace('_', ' ')}
                                             </span>
@@ -212,10 +212,10 @@ export default function TeamManagementTab({ studies }: { studies: any[] }) {
                                         </td>
                                         <td className="p-4">
                                             <span className={`flex items-center gap-1.5 font-bold ${m.status === 'ACTIVE' ? 'text-emerald-400' :
-                                                    m.status === 'PENDING' ? 'text-amber-400' : 'text-red-400'
+                                                m.status === 'PENDING' ? 'text-amber-400' : 'text-red-400'
                                                 }`}>
                                                 <div className={`w-2 h-2 rounded-full ${m.status === 'ACTIVE' ? 'bg-emerald-400' :
-                                                        m.status === 'PENDING' ? 'bg-amber-400 animate-pulse' : 'bg-red-400'
+                                                    m.status === 'PENDING' ? 'bg-amber-400 animate-pulse' : 'bg-red-400'
                                                     }`} />
                                                 {m.status}
                                             </span>

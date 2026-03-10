@@ -29,6 +29,14 @@ const navSections = [
         ]
     },
     {
+        label: "Website (Module B)",
+        items: [
+            { name: "Website Metrics", href: "/super-admin/website", icon: Globe },
+            { name: "Team & Staff", href: "/super-admin/website/staff", icon: Users },
+            { name: "Inquiries", href: "/super-admin/website/inquiries", icon: Megaphone },
+        ]
+    },
+    {
         label: "System",
         items: [
             { name: "Announcements", href: "/super-admin/announcements", icon: Megaphone },
@@ -112,14 +120,9 @@ export default function SuperAdminLayout({ children }: { children: React.ReactNo
 
                 {/* Logo */}
                 <div className="p-5 border-b flex items-center justify-between" style={{ borderColor: "rgba(139,92,246,0.15)" }}>
-                    <Link href="/super-admin" className="flex items-center gap-3 group">
-                        <div className="relative w-9 h-9 rounded-xl bg-gradient-to-br from-violet-600 to-purple-700 flex items-center justify-center shadow-lg shadow-violet-600/30">
-                            <Crown size={16} className="text-white" />
-                            <div className="absolute inset-0 rounded-xl bg-white/10 opacity-0 group-hover:opacity-100 transition-opacity" />
-                        </div>
-                        <div>
-                            <p className="text-white font-black text-sm tracking-tight leading-none">Super Admin</p>
-                            <p className="text-violet-400/70 text-[11px] font-bold uppercase tracking-widest leading-none mt-0.5">Master Control</p>
+                    <Link href="/super-admin" className="flex items-center">
+                        <div className="bg-white px-4 py-2 rounded-full shadow-lg shadow-violet-500/20 group hover:scale-[1.02] transition-transform">
+                            <img src="/musb research.png" alt="MUSB Research" className="h-[24px] w-auto object-contain" />
                         </div>
                     </Link>
                     <button onClick={() => setIsSidebarOpen(false)} className="lg:hidden p-2 text-slate-500 hover:text-white transition-colors">

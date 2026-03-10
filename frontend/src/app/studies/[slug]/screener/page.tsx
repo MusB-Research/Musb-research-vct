@@ -78,10 +78,10 @@ export default function StudyScreenerPage({ params }: { params: Promise<{ slug: 
         try {
             const age = parseInt(answers.age);
             const participatedRecently = answers.recentTrial === true;
-            const hasConditions = (answers.conditions || []).length > 0;
+            const selectedConditions = answers.conditions || [];
+            const hasConditions = selectedConditions.length > 0 && !selectedConditions.includes("None of the above");
 
             // Compute status as a LOCAL variable — React state updates are async
-            // so we can't rely on eligibilityStatus being set yet when we send the email
             const currentStatus: "eligible" | "maybe" | "ineligible" =
                 (isNaN(age) || age < 18 || participatedRecently)
                     ? "ineligible"
@@ -94,13 +94,13 @@ export default function StudyScreenerPage({ params }: { params: Promise<{ slug: 
             // Get participant identity
             const participantEmail = status === "authenticated"
                 ? session?.user?.email
-                : answers.email || null;
+                : answers.email;
 
             const participantName = status === "authenticated"
                 ? (session?.user?.name || session?.user?.email)
-                : (answers.name || null);
+                : (answers.name || "Valued Participant");
 
-            console.log("[SCREENER] Computed status:", currentStatus, "| Email:", participantEmail || "guest/no-email");
+            console.log(`[SCREENER] 🎯 Triggering Notification | Status: ${currentStatus.toUpperCase()} | Recipient: ${participantEmail || "NO-EMAIL"}`);
 
             // Always fire the notify API — even for guests (admin always gets the alert)
             try {

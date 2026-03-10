@@ -13,8 +13,11 @@ import {
     Package,
     CheckCircle2,
     AlertCircle,
-    Loader2
+    Loader2,
+    Database
 } from "lucide-react";
+import ManualEntryTab from "./ManualEntryTab";
+import ParticipantTasksTab from "./ParticipantTasksTab";
 
 export default function ParticipantDetailPage({ params }: { params: Promise<{ id: string }> }) {
     const { id } = use(params);
@@ -50,8 +53,10 @@ export default function ParticipantDetailPage({ params }: { params: Promise<{ id
         { id: "overview", label: "Overview" },
         { id: "timeline", label: "Timeline" },
         { id: "eligibility", label: "Eligibility" },
+        { id: "tasks", label: "Tasks" },
         { id: "logs", label: "Daily Logs" },
         { id: "documents", label: "Documents" },
+        { id: "manual", label: "Manual Entry" },
     ];
 
     if (loading || !participant) {
@@ -175,6 +180,14 @@ export default function ParticipantDetailPage({ params }: { params: Promise<{ id
                             )}
                         </div>
                     </div>
+                )}
+
+                {activeTab === 'manual' && (
+                    <ManualEntryTab participantId={id} />
+                )}
+
+                {activeTab === 'tasks' && (
+                    <ParticipantTasksTab participantId={id} />
                 )}
             </div>
         </div>

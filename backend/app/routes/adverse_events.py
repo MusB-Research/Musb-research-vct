@@ -65,9 +65,14 @@ async def report_ae(
             if study_id:
                 # Try to find study by ID or slug
                 if ObjectId.is_valid(study_id):
-                    study = await db["studies"].find_one({"_id": ObjectId(study_id)})
+                    obj_id = ObjectId(study_id)
+                    study = await db["api_study"].find_one({"_id": obj_id})
+                    if not study:
+                        study = await db["studies"].find_one({"_id": obj_id})
                 else:
-                    study = await db["studies"].find_one({"slug": study_id})
+                    study = await db["api_study"].find_one({"slug": study_id})
+                    if not study:
+                        study = await db["studies"].find_one({"slug": study_id})
 
                 if study:
                     coordinator_id = study.get("coordinatorId")

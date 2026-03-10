@@ -141,13 +141,10 @@ export default function ParticipantLayout({ children }: { children: React.ReactN
                 ${isSidebarOpen ? "translate-x-0" : "-translate-x-full"}
             `}>
                 <div className="p-6 border-b border-slate-800 flex items-center justify-between">
-                    <Link href="/dashboard/participant" className="flex items-center gap-3">
-                        <div className="w-8 h-8 flex items-center justify-center bg-gradient-to-br from-cyan-500 to-blue-600 rounded-lg shadow-lg shadow-cyan-500/20 shrink-0">
-                            <HeartPulse size={16} className="text-white" />
+                    <Link href="/dashboard/participant" className="flex items-center">
+                        <div className="bg-white px-3.5 py-2 rounded-full shadow-lg shadow-cyan-500/15 group hover:scale-[1.02] transition-transform">
+                            <img src="/musb research.png" alt="MUSB Research" className="h-[22px] w-auto object-contain" />
                         </div>
-                        <span className="text-white font-bold tracking-tight text-sm">
-                            MUSB <span className="text-cyan-400">Portal</span>
-                        </span>
                     </Link>
                     <button onClick={() => setIsSidebarOpen(false)} className="lg:hidden p-1 text-slate-500 hover:text-white">
                         <X size={20} />

@@ -23,12 +23,21 @@ def _map_assessment(doc: dict) -> AssessmentOut:
     )
 
 def _map_response(doc: dict) -> FormResponseOut:
+    raw_responses = doc["responses"]
+    if isinstance(raw_responses, str):
+        from app.utils.security import decrypt_data
+        try:
+            import json
+            raw_responses = json.loads(decrypt_data(raw_responses))
+        except Exception:
+            raw_responses = {}
+
     return FormResponseOut(
         id=str(doc["_id"]),
         assessmentId=doc["assessmentId"],
         participantId=doc["participantId"],
         studyId=doc["studyId"],
-        responses=doc["responses"],
+        responses=raw_responses,
         status=doc.get("status", "COMPLETED"),
         submittedAt=doc.get("submittedAt", datetime.now(timezone.utc))
     )
@@ -70,6 +79,11 @@ async def submit_response(
     doc = response_in.model_dump()
     doc["participantId"] = str(participant["_id"])
     doc["submittedAt"] = datetime.now(timezone.utc)
+    
+    # Encrypt responses for HIPAA compliance
+    from app.utils.security import encrypt_data
+    import json
+    doc["responses"] = encrypt_data(json.dumps(doc["responses"]))
     
     result = await db["form_responses"].insert_one(doc)
     created = await db["form_responses"].find_one({"_id": result.inserted_id})

@@ -5,13 +5,13 @@ from bson import ObjectId
 
 from app.database import get_db
 from app.models import TaskInstanceOut
-from app.auth import get_current_user, require_admin
+from app.auth import get_current_user, require_admin, require_coordinator_or_admin
 
 router = APIRouter(prefix="/api/tasks", tags=["Tasks"])
 
 
 def _map_task(doc: dict, task_def: Optional[dict] = None) -> TaskInstanceOut:
-    title = task_def["title"] if task_def else "Unknown Task"
+    title = task_def.get("title", "Unknown Task") if task_def else "Unknown Task"
     desc = task_def.get("description") if task_def else None
     type_ = task_def.get("type", "FORM") if task_def else "FORM"
     return TaskInstanceOut(
@@ -61,11 +61,22 @@ async def complete_task(
     current_user=Depends(get_current_user),
     db=Depends(get_db)
 ):
-    """Participant: mark a task instance as completed."""
+    """Mark a task instance as completed (Coordinator or the Participant themselves)."""
     if not ObjectId.is_valid(instance_id):
         raise HTTPException(status_code=400, detail="Invalid task instance ID")
+    
+    task = await db["taskInstances"].find_one({"_id": ObjectId(instance_id)})
+    if not task:
+        raise HTTPException(status_code=404, detail="Task instance not found")
+        
+    # Security: If participant, ensure it's THEIR task
+    if current_user.role == "PARTICIPANT":
+        participant = await db["participants"].find_one({"userId": current_user.user_id})
+        if not participant or str(participant["_id"]) != task["participantId"]:
+            raise HTTPException(status_code=403, detail="Forbidden: You can only complete your own tasks.")
+            
     now = datetime.now(timezone.utc)
-    result = await db["taskInstances"].update_one(
+    await db["taskInstances"].update_one(
         {"_id": ObjectId(instance_id)},
         {"$set": {"status": "COMPLETED", "completedDate": now}}
     )
@@ -79,7 +90,7 @@ async def complete_task(
 @router.post("/generate/{participant_id}", status_code=201)
 async def generate_tasks(
     participant_id: str,
-    current_user=Depends(require_admin),
+    current_user=Depends(require_coordinator_or_admin),
     db=Depends(get_db)
 ):
     """Admin: generate task instances for a newly enrolled participant based on the study schedule."""

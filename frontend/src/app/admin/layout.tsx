@@ -109,13 +109,9 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
             {/* Sidebar */}
             <aside className={`fixed inset-y-0 left-0 w-72 lg:w-64 border-r border-white/5 bg-[#0a1120]/95 backdrop-blur-xl flex flex-col z-[70] transition-transform duration-500 ease-in-out lg:relative lg:translate-x-0 ${isSidebarOpen ? "translate-x-0" : "-translate-x-full"}`}>
                 <div className="p-6 border-b border-white/5 flex items-center justify-between">
-                    <Link href="/admin" className="flex items-center gap-2 group">
-                        <div className="w-10 h-10 flex items-center justify-center bg-gradient-to-br from-cyan-500 to-blue-600 rounded-xl shrink-0 shadow-lg shadow-cyan-500/20 group-hover:scale-105 transition-transform">
-                            <span className="text-white font-black text-xl tracking-tighter">M</span>
-                        </div>
-                        <div className="flex flex-col">
-                            <span className="text-white font-bold tracking-tight text-sm">Coordinator <span className="text-cyan-500">Console</span></span>
-                            <span className="text-[10px] text-slate-500 font-bold uppercase tracking-[0.2em]">Research Operations</span>
+                    <Link href="/admin" className="flex items-center group">
+                        <div className="bg-white px-3.5 py-1.5 rounded-full shadow-lg shadow-cyan-500/15 transition-transform group-hover:scale-[1.02]">
+                            <img src="/musb research.png" alt="MUSB Research" className="h-[22px] w-auto object-contain" />
                         </div>
                     </Link>
                     <button onClick={() => setIsSidebarOpen(false)} className="lg:hidden p-2 text-slate-500 hover:text-white transition-colors">

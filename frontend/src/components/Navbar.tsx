@@ -75,7 +75,7 @@ export default function Navbar() {
                             alt="MUSB Research"
                             width={200}
                             height={52}
-                            className="h-11 sm:h-[50px] w-auto object-contain"
+                            className="h-11 sm:h-[50px] w-auto object-contain rounded-xl sm:rounded-2xl"
                             priority
                         />
                     </a>

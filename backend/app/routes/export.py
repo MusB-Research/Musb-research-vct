@@ -73,13 +73,12 @@ async def export_epro(
 ):
     """CDISC QS: ePRO and Assessment Data export."""
     rows = []
-    async for doc in db["assessments"].find({}).limit(5000):
+    async for doc in db["form_responses"].find({}).limit(5000):
         rows.append({
             "SUBJID": doc.get("participantId", ""),
-            "QSTEST": doc.get("type", ""),
-            "QSCAT": doc.get("category", ""),
-            "QSORRES": decrypt_data(doc.get("response", "")) or "",
-            "QSDTC": str(doc.get("completedAt", doc.get("createdAt", ""))),
+            "QSTEST": doc.get("assessmentId", ""),
+            "QSORRES": str(doc.get("responses", "")),
+            "QSDTC": str(doc.get("submittedAt", "")),
             "STATUS": doc.get("status", ""),
         })
     await log_audit_event(db, current_user.user_id, "EXPORT_CSV", "epro_assessments")

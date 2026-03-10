@@ -21,13 +21,17 @@ export default function SponsorLoginPage() {
         if (status === "authenticated" && session?.user) {
             const u = session.user as any;
             const s = session as any;
-            const sponsorRoles = ["SPONSOR", "SPONSOR_ADMIN", "STUDY_MANAGER", "VIEWER"];
-            if (sponsorRoles.includes(u.role)) {
+            const roleUpper = u.role?.toUpperCase() || "";
+            const SPONSOR_ROLES = new Set(["SPONSOR", "SPONSOR_ADMIN", "STUDY_MANAGER", "VIEWER"]);
+            const ADMIN_ROLES = new Set(["ADMIN", "COORDINATOR", "PI", "DATA_MANAGER"]);
+
+            if (SPONSOR_ROLES.has(roleUpper)) {
                 if (!s.accessToken) {
                     signOut({ callbackUrl: "https://www.musbhealth.com/" });
                     return;
                 }
 
+                // Only auto-save if no session exists yet (prevents overwriting during manual login)
                 if (!AdminAuth.get()) {
                     AdminAuth.save(s.accessToken, {
                         id: u.id || "",
@@ -38,10 +42,12 @@ export default function SponsorLoginPage() {
                     });
                 }
                 router.replace("/sponsor/dashboard");
-            } else if (u.role === "PARTICIPANT") {
+            } else if (roleUpper === "PARTICIPANT") {
                 router.replace("/dashboard/participant");
-            } else if (u.role === "ADMIN" || u.role === "COORDINATOR") {
+            } else if (ADMIN_ROLES.has(roleUpper)) {
                 router.replace("/admin");
+            } else if (roleUpper === "SUPER_ADMIN") {
+                router.replace("/super-admin");
             }
         }
     }, [status, session, router]);
@@ -68,10 +74,11 @@ export default function SponsorLoginPage() {
 
             const tokenData = await res.json();
             const role: string = tokenData.role?.toUpperCase() || "";
-            const allowedRoles = ["SPONSOR", "SPONSOR_ADMIN", "STUDY_MANAGER", "VIEWER"];
 
-            if (!allowedRoles.includes(role)) {
-                setError("Access denied. This portal is for Sponsor accounts only.");
+            // Gate: allow all sponsor portal roles
+            const SPONSOR_ROLES = ["SPONSOR", "SPONSOR_ADMIN", "STUDY_MANAGER", "VIEWER"];
+            if (!SPONSOR_ROLES.includes(role)) {
+                setError("Access denied. This portal is for authorized sponsor accounts only.");
                 setLoading(false);
                 return;
             }
@@ -81,15 +88,16 @@ export default function SponsorLoginPage() {
             });
             const user = meRes.ok ? await meRes.json() : { id: "", name: email, email, role };
 
+            // Always save session on fresh login (overwrite any stale data)
             AdminAuth.save(tokenData.access_token, {
                 id: user.id || "",
                 name: user.name || email,
                 email: user.email || email,
-                role: role, // preserve actual role (SPONSOR, SPONSOR_ADMIN, STUDY_MANAGER, VIEWER)
+                role, // preserve actual role (SPONSOR, SPONSOR_ADMIN, STUDY_MANAGER, VIEWER)
             });
 
-            // Also keep NextAuth session for middleware compat — must await before navigation
-            await signIn("credentials", { email, password, allowedRole: "SPONSOR", redirect: false });
+            // Kick off NextAuth session for middleware compatibility
+            await signIn("credentials", { email, password, allowedRole: role, redirect: false });
 
             router.push("/sponsor/dashboard");
         } catch (err) {
@@ -131,7 +139,7 @@ export default function SponsorLoginPage() {
                     <div className="relative z-10">
                         <div className="text-center mb-10">
                             <a href="https://www.musbhealth.com/" className="inline-flex items-center gap-2 mb-6">
-                                <img src="/musb research.png" alt="MUSB Research" className="h-10 w-auto object-contain hover:opacity-80 transition-opacity" />
+                                <img src="/musb research.png" alt="MUSB Research" className="h-10 w-auto object-contain rounded-xl hover:opacity-80 transition-opacity" />
                             </a>
                             <h1 className="text-2xl font-black text-white italic tracking-tight mb-2">
                                 Sponsor Access
@@ -192,12 +200,20 @@ export default function SponsorLoginPage() {
                     </div>
                 </div>
 
-                <p className="text-center mt-6 text-[13px] text-slate-600">
-                    Participant?{" "}
-                    <Link href="/signin" className="text-cyan-400 hover:text-cyan-300 font-bold">
-                        Participant Portal →
-                    </Link>
-                </p>
+                {/* Links */}
+                <div className="text-center mt-6 space-y-2">
+                    <p className="text-[12px] text-slate-600">
+                        You can also sign in from the{" "}
+                        <Link href="/signin" className="text-cyan-500 hover:text-cyan-400 font-bold">
+                            main login page →
+                        </Link>
+                    </p>
+                    <p className="text-[12px] text-slate-700">
+                        <Link href="/super-admin/login" className="hover:text-slate-500 transition-colors">
+                            Super Admin Portal
+                        </Link>
+                    </p>
+                </div>
             </div>
         </div>
     );

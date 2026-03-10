@@ -4,6 +4,24 @@ from app.config import get_settings
 settings = get_settings()
 cipher_suite = Fernet(settings.ENCRYPTION_KEY.encode())
 
+import re
+
+def validate_password(password: str) -> tuple[bool, str]:
+    """Validates password strength based on specific criteria."""
+    if len(password) < 10:
+        return False, "Password must be at least 10 characters long."
+    if len(password) > 32:
+        return False, "Password must not exceed 32 characters."
+    if not re.search(r"[A-Z]", password):
+        return False, "Password must contain at least one uppercase letter."
+    if not re.search(r"[a-z]", password):
+        return False, "Password must contain at least one lowercase letter."
+    if not re.search(r"\d", password):
+        return False, "Password must contain at least one number."
+    if not re.search(r"[!@#$%^&*(),.?\":{}|<>]", password):
+        return False, "Password must contain at least one special character."
+    return True, ""
+
 def encrypt_data(data: str) -> str:
     """Encrypts a string of data."""
     if not data:

@@ -6,7 +6,8 @@ import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import Image from "next/image";
 import ReCAPTCHA from "react-google-recaptcha";
-import { Mail, Lock, ArrowRight, User, AlertCircle, ShieldCheck, Clock, CheckCircle2 } from "lucide-react";
+import { Mail, ArrowRight, ShieldCheck, User, CheckCircle2, AlertCircle, Lock } from "lucide-react";
+import PasswordStrength from "@/components/PasswordStrength";
 import { ParticipantAuth } from "@/lib/portal-auth";
 
 const RECAPTCHA_SITE_KEY = process.env.NEXT_PUBLIC_RECAPTCHA_SITE_KEY || "";
@@ -16,6 +17,7 @@ const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
 function SignInContent() {
     const router = useRouter();
     const searchParams = useSearchParams();
+    // Default callbackUrl - will be overridden by role-based routing in handleSubmit
     const callbackUrl = searchParams.get("callbackUrl") || "/dashboard/participant";
     const isLoginParam = searchParams.get("isLogin");
     const recaptchaRef = useRef<ReCAPTCHA>(null);
@@ -24,21 +26,25 @@ function SignInContent() {
 
     const { data: session, status } = useSession();
 
-    // ── INSTANT redirect for already-logged-in users ─────────────────────────
+    // ── INSTANT redirect for already-logged-in users (NextAuth session) ────────
     useEffect(() => {
         if (status !== "authenticated" || !session?.user) return;
 
         const u = session.user as any;
         const s = session as any;
 
-        if (u.role === "PARTICIPANT") {
+        const SPONSOR_ROLES = ["SPONSOR", "SPONSOR_ADMIN", "STUDY_MANAGER", "VIEWER"];
+        const ADMIN_ROLES = ["ADMIN", "COORDINATOR", "PI", "DATA_MANAGER"];
+        const roleUpper: string = u.role?.toUpperCase() || "";
+
+        if (roleUpper === "PARTICIPANT") {
             if (!s.accessToken) {
                 signOut({ redirect: false }).then(() => {
                     window.location.href = "https://www.musbhealth.com/";
                 });
                 return;
             }
-            // Sync token to local storage if missing
+            // Sync token to sessionStorage if missing
             if (!ParticipantAuth.get()) {
                 ParticipantAuth.save(s.accessToken, {
                     id: u.id || "",
@@ -49,14 +55,13 @@ function SignInContent() {
                 });
             }
             router.replace(callbackUrl);
-        } else if (u.role === "SPONSOR") {
+        } else if (SPONSOR_ROLES.includes(roleUpper)) {
+            // Sponsor team members — already redirected in handleSubmit, this is belt-and-suspenders
             router.replace("/sponsor/dashboard");
-        } else if (["COORDINATOR", "PI", "DATA_MANAGER"].includes(u.role)) {
+        } else if (ADMIN_ROLES.includes(roleUpper)) {
             router.replace("/admin");
-        } else if (u.role === "ADMIN" || u.role === "SUPER_ADMIN") {
-            signOut({ redirect: false }).then(() => {
-                window.location.href = "https://www.musbhealth.com/";
-            });
+        } else if (roleUpper === "SUPER_ADMIN") {
+            router.replace("/super-admin");
         }
     }, [status, session, router, callbackUrl]);
 
@@ -162,31 +167,53 @@ function SignInContent() {
                 const tokenData = await res.json();
                 const role: string = tokenData.role?.toUpperCase() || "";
 
-                // Role-based routing
+                // ── Role-based routing after successful login ──────────────────
+                const SPONSOR_ROLES = ["SPONSOR", "SPONSOR_ADMIN", "STUDY_MANAGER", "VIEWER"];
+                const ADMIN_ROLES = ["ADMIN", "COORDINATOR", "PI", "DATA_MANAGER"];
+
                 if (role === "SUPER_ADMIN") {
-                    setError("Super Admins must use the Master Control Portal.");
-                    setLoading(false);
+                    // Super admin has dedicated portal
+                    const { SuperAdminAuth } = await import("@/lib/portal-auth");
+                    SuperAdminAuth.save(tokenData.access_token, {
+                        id: tokenData.id || "",
+                        name: tokenData.name || email,
+                        email,
+                        role,
+                    });
+                    signIn("credentials", { email, password, allowedRole: "SUPER_ADMIN", redirect: false });
+                    router.push("/super-admin");
                     return;
-                } else if (role === "ADMIN") {
-                    setError("Administrators must use the Admin Console.");
-                    setLoading(false);
-                    return;
-                } else if (["COORDINATOR", "PI", "DATA_MANAGER"].includes(role)) {
+                }
+
+                if (ADMIN_ROLES.includes(role)) {
+                    // Admin / Coordinator / PI / Data Manager → Admin console
                     const { AdminAuth } = await import("@/lib/portal-auth");
-                    AdminAuth.save(tokenData.access_token, { id: tokenData.id || "", name: tokenData.name || email, email, role });
-                    // Fire NextAuth signIn in background — don't await
+                    AdminAuth.save(tokenData.access_token, {
+                        id: tokenData.id || "",
+                        name: tokenData.name || email,
+                        email,
+                        role,
+                    });
                     signIn("credentials", { email, password, allowedRole: role, redirect: false });
                     router.push("/admin");
                     return;
-                } else if (role === "SPONSOR") {
+                }
+
+                if (SPONSOR_ROLES.includes(role)) {
+                    // Sponsor / Sponsor Admin / Study Manager / Viewer → Sponsor portal
                     const { AdminAuth } = await import("@/lib/portal-auth");
-                    AdminAuth.save(tokenData.access_token, { id: tokenData.id || "", name: tokenData.name || email, email, role });
-                    signIn("credentials", { email, password, allowedRole: "SPONSOR", redirect: false });
+                    AdminAuth.save(tokenData.access_token, {
+                        id: tokenData.id || "",
+                        name: tokenData.name || email,
+                        email,
+                        role,
+                    });
+                    signIn("credentials", { email, password, allowedRole: role, redirect: false });
                     router.push("/sponsor/dashboard");
                     return;
                 }
 
-                // PARTICIPANT login — save token immediately, fire NextAuth in background
+                // Default: PARTICIPANT — save token immediately, fire NextAuth in background
                 ParticipantAuth.save(tokenData.access_token, {
                     id: tokenData.id || "",
                     name: tokenData.name || email,
@@ -293,18 +320,13 @@ function SignInContent() {
                     return;
                 }
 
-                // Registration successful — login immediately with the returned token
-                if (data.access_token) {
-                    ParticipantAuth.save(data.access_token, {
-                        id: data.id || "",
-                        name: data.name || name,
-                        email: data.email || email,
-                        role: "PARTICIPANT",
-                    });
-                }
-                // Fire NextAuth in background
-                signIn("credentials", { email, password, allowedRole: "PARTICIPANT", redirect: false });
-                router.push(callbackUrl);
+                // Registration successful — require user to log in
+                setSuccessMsg("Account created successfully! Please log in to continue.");
+                setIsLogin(true);
+                setShowOtp(false);
+                setOtpVerifiedLocally(false);
+                setOtp("");
+                setPassword("");
             }
         } catch (err: any) {
             setError(err.message || "Something went wrong. Please try again.");
@@ -380,8 +402,8 @@ function SignInContent() {
                     <div className="relative z-10">
                         {/* Logo & Title */}
                         <div className="text-center mb-10">
-                            <div className="flex flex-col items-center gap-4 mb-8">
-                                <Link href="/" className="inline-flex items-center hover:opacity-90 transition-opacity bg-white px-8 py-4 mb-2 shadow-2xl shadow-black">
+                            <div className="flex flex-col items-center gap-4 mb-10">
+                                <a href="https://www.musbhealth.com/" className="inline-flex items-center justify-center hover:opacity-90 transition-opacity bg-white px-8 py-5 shadow-2xl shadow-black/40 rounded-3xl">
                                     <Image
                                         src="/musb research.png"
                                         alt="MUSB Research"
@@ -390,19 +412,13 @@ function SignInContent() {
                                         className="h-16 w-auto object-contain"
                                         priority
                                     />
-                                </Link>
-                                <div className="flex items-center gap-2 px-3 py-1.5 rounded-full bg-slate-900/40 border border-slate-800/60 backdrop-blur-md">
-                                    <Clock size={10} className="text-cyan-400" />
-                                    <span className="text-[13px] font-bold text-slate-400 uppercase tracking-wider">
-                                        Monday to Saturday · 08:30 AM - 05:00 PM
-                                    </span>
-                                </div>
+                                </a>
                             </div>
                             <h1 className="text-4xl font-black text-white italic tracking-tighter mb-2">
-                                {isLogin ? "Welcome Back." : "Start Journey."}
+                                {isLogin ? "Welcome Back" : "Start Journey"}
                             </h1>
-                            <p className="text-slate-500 text-sm font-bold uppercase tracking-widest opacity-60">
-                                {isLogin ? "Authorized Access Only" : "Participant Enrollment"}
+                            <p className="text-slate-500 text-[13px] font-bold uppercase tracking-[0.2em] opacity-60">
+                                {isLogin ? "Enter your credentials to continue" : "Participant Enrollment"}
                             </p>
                         </div>
 
@@ -429,8 +445,8 @@ function SignInContent() {
                             {/* Full Name (register only) */}
                             {!isLogin && (
                                 <div className="space-y-1.5">
-                                    <label className="text-[13px] font-bold text-slate-400 uppercase tracking-wider ml-1">Full Name</label>
-                                    <div className="relative group">
+                                    <label className="text-[13px] font-bold text-slate-400 uppercase tracking-wider">Full Name</label>
+                                    <div className="relative group text-left">
                                         <div className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-500 group-focus-within:text-cyan-400 transition-colors">
                                             <User size={18} />
                                         </div>
@@ -448,8 +464,8 @@ function SignInContent() {
 
                             {/* Email */}
                             <div className="space-y-1.5">
-                                <label className="text-[13px] font-bold text-slate-400 uppercase tracking-wider ml-1">Email Address</label>
-                                <div className="relative group">
+                                <label className="text-[13px] font-bold text-slate-400 uppercase tracking-wider">Email Address</label>
+                                <div className="relative group text-left">
                                     <div className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-500 group-focus-within:text-cyan-400 transition-colors">
                                         <Mail size={18} />
                                     </div>
@@ -468,8 +484,8 @@ function SignInContent() {
                             {/* Password — always shown for Login, shown after OTP verification for Register */}
                             {(isLogin || otpVerifiedLocally) && (
                                 <div className="space-y-1.5 animate-in slide-in-from-top duration-300">
-                                    <label className="text-[13px] font-bold text-slate-400 uppercase tracking-wider ml-1">Password</label>
-                                    <div className="relative group">
+                                    <label className="text-[13px] font-bold text-slate-400 uppercase tracking-wider">Password</label>
+                                    <div className="relative group text-left">
                                         <div className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-500 group-focus-within:text-cyan-400 transition-colors">
                                             <Lock size={18} />
                                         </div>
@@ -478,17 +494,19 @@ function SignInContent() {
                                             value={password}
                                             onChange={(e) => setPassword(e.target.value)}
                                             required
+                                            minLength={10}
+                                            maxLength={32}
                                             className="w-full bg-slate-950/50 border border-white/10 rounded-xl py-3.5 pl-11 pr-4 text-white placeholder:text-slate-600 focus:outline-none focus:border-cyan-500/50 transition-all font-medium"
-                                            placeholder="••••••••••••"
+                                            placeholder="Secure password (10-32 characters)"
                                         />
                                     </div>
                                     {!isLogin && (
-                                        <p className="text-[13px] text-slate-500 px-1">Min 12 chars, uppercase, lowercase, number & special char.</p>
+                                        <PasswordStrength password={password} />
                                     )}
                                     {isLogin && (
                                         <div className="flex justify-end mt-1">
-                                            <Link href="/forgot-password?role=PARTICIPANT" className="text-xs font-medium text-cyan-400 hover:text-cyan-300 transition-colors">
-                                                Forgot Participant Password?
+                                            <Link href="/forgot-password" title="Reset your account password" className="text-xs font-medium text-cyan-400 hover:text-cyan-300 transition-colors">
+                                                Forgot Password?
                                             </Link>
                                         </div>
                                     )}
@@ -556,15 +574,15 @@ function SignInContent() {
                                         <input
                                             type="text"
                                             value={otp}
-                                            onChange={(e) => setOtp(e.target.value.replace(/\D/g, "").slice(0, 6))}
+                                            onChange={(e) => setOtp(e.target.value.replace(/[^a-zA-Z0-9]/g, "").slice(0, 8))}
                                             required
                                             autoFocus
-                                            className="w-full bg-slate-950/50 border border-cyan-500/30 rounded-xl py-3.5 pl-11 pr-4 text-white placeholder:text-slate-600 focus:outline-none focus:border-cyan-500 transition-all font-black tracking-[1em] text-center"
-                                            placeholder="000000"
-                                            maxLength={6}
+                                            className="w-full bg-slate-950/50 border border-cyan-500/30 rounded-xl py-3.5 pl-11 pr-4 text-white placeholder:text-slate-600 focus:outline-none focus:border-cyan-500 transition-all font-black tracking-[0.5em] text-center"
+                                            placeholder="a1B2c3D4"
+                                            maxLength={8}
                                         />
                                     </div>
-                                    <p className="text-[13px] text-slate-500 mt-2 px-1">Enter the 6-digit code sent to your email.</p>
+                                    <p className="text-[13px] text-slate-500 mt-2 px-1">Enter the 8-character code sent to your email.</p>
                                     <div className="mt-3 text-center">
                                         <button type="button" onClick={handleResendOtp} disabled={loading}
                                             className="text-cyan-400 text-[13px] font-bold hover:text-cyan-300 transition-colors disabled:opacity-50">
@@ -578,32 +596,36 @@ function SignInContent() {
                             <button
                                 type="submit"
                                 disabled={loading}
-                                className="w-full py-4 bg-cyan-600 hover:bg-cyan-500 text-white font-black uppercase tracking-widest rounded-xl shadow-[0_0_20px_rgba(6,182,212,0.3)] hover:shadow-[0_0_30px_rgba(6,182,212,0.5)] transition-all flex items-center justify-center gap-2 group/btn disabled:opacity-50 disabled:cursor-not-allowed"
+                                className="w-full h-[56px] relative bg-cyan-600 hover:bg-cyan-500 text-white font-black uppercase tracking-[0.2em] rounded-xl shadow-[0_0_20px_rgba(6,182,212,0.3)] hover:shadow-[0_0_30px_rgba(6,182,212,0.5)] transition-all group/btn disabled:opacity-50 disabled:cursor-not-allowed"
                             >
-                                {loading ? (
-                                    <div className="w-5 h-5 rounded-full border-2 border-white/30 border-t-white animate-spin" />
-                                ) : (
-                                    <>
-                                        {isLogin
-                                            ? "Sign In"
-                                            : otpVerifiedLocally
-                                                ? "Create Account"
-                                                : showOtp
-                                                    ? "Verify Code"
-                                                    : "Send Verification Code"}
-                                        <ArrowRight size={18} className="group-hover/btn:translate-x-1 transition-transform" />
-                                    </>
-                                )}
+                                <div className="absolute inset-0 flex items-center justify-center">
+                                    {loading ? (
+                                        <div className="w-5 h-5 rounded-full border-2 border-white/30 border-t-white animate-spin" />
+                                    ) : (
+                                        <div className="flex items-center gap-2">
+                                            <span>
+                                                {isLogin
+                                                    ? "Sign In"
+                                                    : otpVerifiedLocally
+                                                        ? "Create Account"
+                                                        : showOtp
+                                                            ? "Verify Code"
+                                                            : "Send Verification Code"}
+                                            </span>
+                                            <ArrowRight size={18} className="group-hover/btn:translate-x-1 transition-transform" />
+                                        </div>
+                                    )}
+                                </div>
                             </button>
                         </form>
 
                         {/* Divider */}
-                        <div className="relative my-8">
+                        <div className="relative my-10">
                             <div className="absolute inset-0 flex items-center">
-                                <div className="w-full border-t border-slate-800" />
+                                <div className="w-full border-t border-slate-800/100" />
                             </div>
-                            <div className="relative flex justify-center text-[13px] uppercase">
-                                <span className="bg-[#0f172a] px-3 text-slate-500 font-bold">Or continue with</span>
+                            <div className="relative flex justify-center text-[11px] uppercase tracking-widest">
+                                <span className="bg-[#0b1226] px-4 text-slate-500 font-bold">Or continue with</span>
                             </div>
                         </div>
 

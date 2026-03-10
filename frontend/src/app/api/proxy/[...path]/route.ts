@@ -1,55 +1,35 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getServerSession } from "next-auth/next";
-import { authOptions } from "@/lib/auth";
+import { getToken } from "next-auth/jwt";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
 
-export async function GET(req: NextRequest, { params }: { params: Promise<{ path: string[] }> }) {
-    return handleProxy(req, params);
-}
-
-export async function POST(req: NextRequest, { params }: { params: Promise<{ path: string[] }> }) {
-    return handleProxy(req, params);
-}
-
-export async function PUT(req: NextRequest, { params }: { params: Promise<{ path: string[] }> }) {
-    return handleProxy(req, params);
-}
-
-export async function PATCH(req: NextRequest, { params }: { params: Promise<{ path: string[] }> }) {
-    return handleProxy(req, params);
-}
-
-export async function DELETE(req: NextRequest, { params }: { params: Promise<{ path: string[] }> }) {
-    return handleProxy(req, params);
-}
-
-async function handleProxy(req: NextRequest, paramsPromise: Promise<{ path: string[] }>) {
-    const { path } = await paramsPromise;
-    const session = await getServerSession(authOptions);
+async function handleProxy(req: NextRequest, { params }: { params: Promise<{ path: string[] }> }) {
+    const { path } = await params;
     const targetPath = path.join("/");
     const url = new URL(`${API_URL}/api/${targetPath}`);
 
-    // Copy query params
+    // Carry over URL params
     req.nextUrl.searchParams.forEach((value, key) => {
         url.searchParams.set(key, value);
     });
 
     const headers = new Headers();
 
-    // Priority: client's Authorization header (used by Admin/Participant portals)
-    // then fall back to NextAuth session token
-    const clientAuthHeader = req.headers.get("authorization");
-    if (clientAuthHeader) {
-        headers.set("Authorization", clientAuthHeader);
-    } else if (session?.accessToken) {
-        headers.set("Authorization", `Bearer ${session.accessToken}`);
-    }
-
-    // Content-Type might be set by the request, but we should handle it carefully
+    // Pass down Content-Type if present
     const contentType = req.headers.get("content-type");
     if (contentType) {
         headers.set("Content-Type", contentType);
+    }
+
+    // 🚀 OPTIMIZATION: Use getToken() instead of getServerSession()
+    // It directly decodes the token securely without invoking the entire auth callback chain.
+    const token = await getToken({ req, secret: process.env.NEXTAUTH_SECRET });
+    const clientAuthHeader = req.headers.get("authorization");
+
+    if (clientAuthHeader) {
+        headers.set("Authorization", clientAuthHeader);
+    } else if (token?.accessToken) {
+        headers.set("Authorization", `Bearer ${token.accessToken}`);
     }
 
     try {
@@ -61,10 +41,17 @@ async function handleProxy(req: NextRequest, paramsPromise: Promise<{ path: stri
             duplex: "half",
         });
 
-        const data = await response.json().catch(() => ({}));
-        return NextResponse.json(data, { status: response.status });
+        // 🚀 OPTIMIZATION: Stream the raw response directly to the client
+        // This makes transferring large payloads (like data grids) significantly faster
+        // and skips Next.js having to buffer and parse the JSON.
+        return new NextResponse(response.body, {
+            status: response.status,
+            headers: response.headers,
+        });
     } catch (error: any) {
         console.error("Proxy error:", error);
         return NextResponse.json({ detail: "Backend connection failed" }, { status: 502 });
     }
 }
+
+export { handleProxy as GET, handleProxy as POST, handleProxy as PUT, handleProxy as PATCH, handleProxy as DELETE };

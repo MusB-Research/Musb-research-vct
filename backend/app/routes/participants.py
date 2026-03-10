@@ -5,7 +5,7 @@ from bson import ObjectId
 import json
 
 from app.database import get_db
-from app.models import ParticipantOut, ScreenerSubmit, ScreenerOut, ConsentSign, ConsentOut
+from app.models import ParticipantOut, ScreenerSubmit, ScreenerOut, ConsentSign, ConsentOut, TaskInstanceOut
 from app.auth import get_current_user, require_admin, require_coordinator_or_admin
 from app.utils.security import encrypt_data, decrypt_data
 from app.utils.randomization import randomize_participant
@@ -83,9 +83,14 @@ async def get_my_report(
     if participant.get("studyId"):
         study_id_str = participant["studyId"]
         if ObjectId.is_valid(study_id_str):
-            study = await db["studies"].find_one({"_id": ObjectId(study_id_str)})
+            obj_id = ObjectId(study_id_str)
+            study = await db["api_study"].find_one({"_id": obj_id})
+            if not study:
+                study = await db["studies"].find_one({"_id": obj_id})
         if not study:
-            study = await db["studies"].find_one({"slug": study_id_str})
+            study = await db["api_study"].find_one({"slug": study_id_str})
+            if not study:
+                study = await db["studies"].find_one({"slug": study_id_str})
 
     user = None
     if current_user.user_id and ObjectId.is_valid(current_user.user_id):
@@ -151,9 +156,14 @@ async def _map_participant(p: dict, db, user: Optional[dict] = None) -> Particip
         study_id_str = p["studyId"]
         study = None
         if ObjectId.is_valid(study_id_str):
-            study = await db["studies"].find_one({"_id": ObjectId(study_id_str)})
+            obj_id = ObjectId(study_id_str)
+            study = await db["api_study"].find_one({"_id": obj_id})
+            if not study:
+                study = await db["studies"].find_one({"_id": obj_id})
         if not study:
-            study = await db["studies"].find_one({"slug": study_id_str})
+            study = await db["api_study"].find_one({"slug": study_id_str})
+            if not study:
+                study = await db["studies"].find_one({"slug": study_id_str})
             
         if study:
             study_title = study.get("title")
@@ -193,10 +203,26 @@ async def list_participants(
     current_user=Depends(require_coordinator_or_admin),
     db=Depends(get_db)
 ):
-    """Admin: list all participants, optionally filtered."""
+    """Admin: list all participants, optionally filtered. Coordinators only see their assigned studies."""
     query = {}
-    if study_id:
-        query["studyId"] = study_id
+    
+    # HIPAA / Tenant Isolation: Enforce coordinator study boundaries
+    if current_user.role == "COORDINATOR":
+        user_doc = await db["users"].find_one({"_id": ObjectId(current_user.user_id)})
+        assigned_studies = user_doc.get("assignedStudies", []) if user_doc else []
+        if study_id:
+            # If they requested a specific study, make sure they actually own it
+            if study_id not in assigned_studies:
+                raise HTTPException(status_code=403, detail="Access denied")
+            query["studyId"] = study_id
+        else:
+            # If no specific study requested, lock it down to ONLY their assigned studies
+            query["studyId"] = {"$in": assigned_studies}
+    else:
+        # Admins/Super Admins see everything (filtered if requested)
+        if study_id:
+            query["studyId"] = study_id
+
     if status:
         query["status"] = status
 
@@ -435,9 +461,14 @@ async def _enroll_logic(p: dict, db):
         raise HTTPException(status_code=400, detail="Participant is not assigned to a study")
     study = None
     if ObjectId.is_valid(study_id):
-        study = await db["studies"].find_one({"_id": ObjectId(study_id)})
+        obj_id = ObjectId(study_id)
+        study = await db["api_study"].find_one({"_id": obj_id})
+        if not study:
+            study = await db["studies"].find_one({"_id": obj_id})
     if not study:
-        study = await db["studies"].find_one({"slug": study_id})
+        study = await db["api_study"].find_one({"slug": study_id})
+        if not study:
+            study = await db["studies"].find_one({"slug": study_id})
     if not study:
         raise HTTPException(status_code=404, detail="Assigned study not found")
 
@@ -463,3 +494,34 @@ async def _enroll_logic(p: dict, db):
         "randomized": arm_id is not None
     }
 
+@router.get("/{participant_id}/tasks", response_model=List[TaskInstanceOut])
+async def list_participant_tasks(
+    participant_id: str,
+    current_user=Depends(require_coordinator_or_admin),
+    db=Depends(get_db)
+):
+    """Admin: list all task instances for a specific participant."""
+    if not ObjectId.is_valid(participant_id):
+        raise HTTPException(status_code=400, detail="Invalid participant ID")
+
+    # HIPAA check
+    p = await db["participants"].find_one({"_id": ObjectId(participant_id)})
+    if not p:
+        raise HTTPException(status_code=404, detail="Participant not found")
+
+    if current_user.role == "COORDINATOR":
+        study_id = p.get("studyId")
+        coordinator_user = await db["users"].find_one({"_id": ObjectId(current_user.user_id)})
+        assigned_studies = coordinator_user.get("assignedStudies", [])
+        if study_id not in assigned_studies:
+            raise HTTPException(status_code=403, detail="Access denied")
+
+    from app.routes.tasks import _map_task
+    query: dict = {"participantId": participant_id}
+    result = []
+    async for doc in db["taskInstances"].find(query).sort("dueDate", 1):
+        task_def = None
+        if ObjectId.is_valid(doc.get("taskId", "")):
+            task_def = await db["tasks"].find_one({"_id": ObjectId(doc["taskId"])})
+        result.append(_map_task(doc, task_def))
+    return result

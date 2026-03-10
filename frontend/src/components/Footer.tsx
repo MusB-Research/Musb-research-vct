@@ -70,7 +70,7 @@ export default function Footer() {
                                     alt="MUSB Research Logo"
                                     width={250}
                                     height={64}
-                                    className="h-16 w-auto object-contain"
+                                    className="h-16 w-auto object-contain rounded-xl"
                                 />
                             </div>
                         </a>

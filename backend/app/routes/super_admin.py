@@ -16,7 +16,7 @@ from motor.motor_asyncio import AsyncIOMotorDatabase
 
 from app.database import get_db
 from app.auth import require_super_admin, get_password_hash
-from app.utils.security import encrypt_data, decrypt_data
+from app.utils.security import encrypt_data, decrypt_data, validate_password
 from app.utils.email import notify_new_credentials
 from app.config import get_settings
 
@@ -42,13 +42,27 @@ async def get_platform_stats(
     total_admins     = await db["users"].count_documents({"role": {"$in": ["ADMIN", "SUPER_ADMIN"]}})
     total_sponsors   = await db["users"].count_documents({"role": "SPONSOR"})
     total_sponsor_teams = await db["users"].count_documents({"role": {"$in": ["SPONSOR_ADMIN", "STUDY_MANAGER", "VIEWER"]}})
-    total_studies    = await db["studies"].count_documents({})
-    active_studies   = await db["studies"].count_documents({"status": "ACTIVE"})
+    
+    # Combined studies from both modules
+    vct_studies    = await db["studies"].count_documents({})
+    api_studies    = await db["api_study"].count_documents({})
+    total_studies  = vct_studies + api_studies
+    
+    active_vct   = await db["studies"].count_documents({"status": "ACTIVE"})
+    active_api   = await db["api_study"].count_documents({"status": "ACTIVE"})
+    active_studies = active_vct + active_api
+    
     total_parts      = await db["participants"].count_documents({})
     active_parts     = await db["participants"].count_documents({"status": {"$in": ["ACTIVE", "ENROLLED"]}})
     open_aes         = await db["adverseEvents"].count_documents({"status": {"$ne": "Resolved"}})
+    
     collection_names = await db.list_collection_names()
-    total_leads      = await db["leads"].count_documents({}) if "leads" in collection_names else 0
+    
+    # Website (Other Module) Stats
+    staff_count      = await db["api_staffmember"].count_documents({}) if "api_staffmember" in collection_names else 0
+    inquiry_count    = await db["api_facilityinquiry"].count_documents({}) if "api_facilityinquiry" in collection_names else 0
+    subscribers      = await db["api_newslettersubscriber"].count_documents({}) if "api_newslettersubscriber" in collection_names else 0
+    
     audit_today      = await db["audit_logs"].count_documents({
         "timestamp": {"$gte": datetime.now(timezone.utc).replace(hour=0, minute=0, second=0, microsecond=0)}
     })
@@ -63,7 +77,9 @@ async def get_platform_stats(
         "totalParticipants": total_parts,
         "activeParticipants": active_parts,
         "openAdverseEvents": open_aes,
-        "sponsorLeads":     total_leads,
+        "websiteStaff":     staff_count,
+        "websiteInquiries": inquiry_count,
+        "subscribers":      subscribers,
         "auditEventsToday": audit_today,
     }
 
@@ -126,6 +142,11 @@ async def create_user(
 
     if await db["users"].find_one({"email": body.email}):
         raise HTTPException(status_code=409, detail="Email already in use.")
+
+    # Validate Password
+    is_valid, reason = validate_password(body.password)
+    if not is_valid:
+        raise HTTPException(status_code=400, detail=reason)
 
     now = datetime.now(timezone.utc)
     doc = {
@@ -194,6 +215,9 @@ async def update_user(
     if body.role is not None:
         updates["role"] = body.role
     if body.password is not None:
+        is_valid, reason = validate_password(body.password)
+        if not is_valid:
+            raise HTTPException(status_code=400, detail=reason)
         updates["passwordHash"] = get_password_hash(body.password)
     if body.suspended is not None:
         updates["suspended"] = body.suspended
@@ -235,12 +259,15 @@ async def list_all_studies(
     current_user=Depends(require_super_admin),
     db: AsyncIOMotorDatabase = Depends(get_db),
 ):
-    """List all studies with optional status filter."""
+    """List all studies from both modules (VCT app and Website)."""
     query: dict = {}
     if status:
-        query["status"] = status
+        # Use case-insensitive search to bridge VCT (UPPER) and Website (Title Case) status
+        query["status"] = {"$regex": f"^{status}$", "$options": "i"}
 
     studies = []
+    
+    # 1. Fetch from VCT 'studies' collection
     async for s in db["studies"].find(query).sort("createdAt", -1).skip(skip).limit(limit):
         studies.append({
             "id":          str(s["_id"]),
@@ -251,9 +278,31 @@ async def list_all_studies(
             "location":    s.get("location", ""),
             "createdAt":   s.get("createdAt"),
             "targetParticipants": s.get("targetParticipants", 0),
+            "source":      "VCT_APP"
         })
-    total = await db["studies"].count_documents(query)
-    return {"studies": studies, "total": total}
+        
+    # 2. Fetch from Website 'api_study' collection (if space in limit)
+    limit_left = limit - len(studies)
+    if limit_left > 0:
+        # Website schema uses 'created_at' instead of 'createdAt'
+        async for s in db["api_study"].find(query).sort("created_at", -1).limit(limit_left):
+            studies.append({
+                "id":          str(s["_id"]),
+                "title":       s.get("title", ""),
+                "slug":        s.get("slug", ""),
+                "status":      s.get("status", "DRAFT").upper(), # Normalize status
+                "condition":   s.get("condition", ""),
+                "location":    s.get("location", ""),
+                "createdAt":   s.get("created_at") or s.get("createdAt"),
+                "targetParticipants": s.get("targetParticipants", 0),
+                "source":      "WEBSITE"
+            })
+
+    vct_total = await db["studies"].count_documents(query)
+    # For counting API studies, we use the same status query
+    api_total = await db["api_study"].count_documents(query)
+    
+    return {"studies": studies, "total": vct_total + api_total}
 
 
 class StudyStatusBody(BaseModel):
@@ -267,19 +316,42 @@ async def update_study_status(
     current_user=Depends(require_super_admin),
     db: AsyncIOMotorDatabase = Depends(get_db),
 ):
-    """Change a study's status (activate, pause, archive, etc.)."""
+    """Change a study's status in either module and sync is_active for public visibility."""
     try:
         oid = ObjectId(study_id)
     except Exception:
         raise HTTPException(status_code=400, detail="Invalid study ID.")
 
+    now = datetime.now(timezone.utc)
+    status_upper = body.status.upper()
+    
+    # Define which statuses count as 'active' for the public website
+    is_active_for_website = status_upper in ["ACTIVE", "RECRUITING", "ONGOING", "OPEN"]
+
+    # 1. Try VCT module (Module A)
     result = await db["studies"].update_one(
         {"_id": oid},
-        {"$set": {"status": body.status, "updatedAt": datetime.now(timezone.utc), "updatedBy": current_user.user_id}}
+        {"$set": {"status": status_upper, "updatedAt": now, "updatedBy": current_user.user_id}}
     )
+    
+    # 2. If not found, try Website module (Module B)
     if result.matched_count == 0:
-        raise HTTPException(status_code=404, detail="Study not found.")
-    return {"message": f"Study status updated to {body.status}."}
+        # Website module might use title case for status (e.g., 'Recruiting' instead of 'RECRUITING')
+        website_status = body.status.capitalize() if status_upper == "RECRUITING" else body.status
+        
+        result = await db["api_study"].update_one(
+            {"_id": oid},
+            {"$set": {
+                "status": website_status,
+                "updated_at": now,
+                "is_active": is_active_for_website
+            }}
+        )
+    
+    if result.matched_count == 0:
+        raise HTTPException(status_code=404, detail="Study not found in any module.")
+        
+    return {"message": f"Study status updated to {body.status}. Public visibility: {'Active' if is_active_for_website else 'Hidden'}"}
 
 
 @router.delete("/studies/{study_id}")
@@ -288,23 +360,28 @@ async def delete_study(
     current_user=Depends(require_super_admin),
     db: AsyncIOMotorDatabase = Depends(get_db),
 ):
-    """Permanently delete a study and all its associated data."""
+    """Permanently delete a study and all its associated data from either module."""
     try:
         oid = ObjectId(study_id)
     except Exception:
         raise HTTPException(status_code=400, detail="Invalid study ID.")
 
+    # 1. Check VCT studies
     study = await db["studies"].find_one({"_id": oid})
-    if not study:
-        raise HTTPException(status_code=404, detail="Study not found.")
+    if study:
+        sid = str(oid)
+        await db["participants"].delete_many({"studyId": sid})
+        await db["taskInstances"].delete_many({"studyId": sid})
+        await db["studies"].delete_one({"_id": oid})
+        return {"message": "VCT Study and associated data permanently deleted."}
+    
+    # 2. Check Website studies
+    study = await db["api_study"].find_one({"_id": oid})
+    if study:
+        await db["api_study"].delete_one({"_id": oid})
+        return {"message": "Website Study permanently deleted."}
 
-    # Cascade delete associated data
-    sid = str(oid)
-    await db["participants"].delete_many({"studyId": sid})
-    await db["taskInstances"].delete_many({"studyId": sid})
-    await db["studies"].delete_one({"_id": oid})
-
-    return {"message": "Study and associated data permanently deleted."}
+    raise HTTPException(status_code=404, detail="Study not found.")
 
 
 # ─── Sponsor / Lead Management ────────────────────────────────────────────────
@@ -509,3 +586,67 @@ async def delete_announcement(
     if result.deleted_count == 0:
         raise HTTPException(status_code=404, detail="Announcement not found.")
     return {"message": "Announcement deleted."}
+
+
+# ─── Website Management (Other Module) ────────────────────────────────────────
+
+@router.get("/website/staff")
+async def list_website_staff(
+    current_user=Depends(require_super_admin),
+    db: AsyncIOMotorDatabase = Depends(get_db),
+):
+    """List all staff members from the website module."""
+    staff = []
+    async for s in db["api_staffmember"].find().sort("display_order", 1):
+        staff.append({
+            "id": str(s["_id"]),
+            "name": s.get("name"),
+            "role": s.get("role"),
+            "department": s.get("department"),
+            "order": s.get("display_order"),
+            "isActive": s.get("is_active", True)
+        })
+    return staff
+
+@router.get("/website/inquiries")
+async def list_website_inquiries(
+    type: str = "FACILITY", # FACILITY, CONTACT, JOB
+    current_user=Depends(require_super_admin),
+    db: AsyncIOMotorDatabase = Depends(get_db),
+):
+    """List inquiries from the website module."""
+    coll_map = {
+        "FACILITY": "api_facilityinquiry",
+        "CONTACT": "api_contactinquiry",
+        "JOB": "api_jobapplication"
+    }
+    coll_name = coll_map.get(type.upper(), "api_facilityinquiry")
+    
+    inquiries = []
+    async for i in db[coll_name].find().sort("created_at", -1).limit(100):
+        inquiries.append({
+            "id": str(i["_id"]),
+            "name": i.get("name") or i.get("full_name"),
+            "email": i.get("email"),
+            "subject": i.get("subject") or i.get("facility_name"),
+            "message": i.get("message") or i.get("description"),
+            "createdAt": i.get("created_at"),
+            "status": i.get("status", "NEW")
+        })
+    return inquiries
+
+@router.get("/website/subscribers")
+async def list_website_subscribers(
+    current_user=Depends(require_super_admin),
+    db: AsyncIOMotorDatabase = Depends(get_db),
+):
+    """List newsletter subscribers from the website module."""
+    subscribers = []
+    async for s in db["api_newslettersubscriber"].find().sort("created_at", -1):
+        subscribers.append({
+            "id": str(s["_id"]),
+            "email": s.get("email"),
+            "active": s.get("is_active", True),
+            "createdAt": s.get("created_at")
+        })
+    return subscribers

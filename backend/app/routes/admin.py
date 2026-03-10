@@ -23,6 +23,7 @@ async def get_dashboard_stats(
     consented = await db["participants"].count_documents({"status": "CONSENTED"})
     enrolled = await db["participants"].count_documents({"status": "ENROLLED"})
     active = await db["participants"].count_documents({"status": "ACTIVE"})
+    completed_p = await db["participants"].count_documents({"status": "COMPLETED"})
     
     # Calculate global compliance
     completed = await db["taskInstances"].count_documents({"status": "COMPLETED"})
@@ -38,6 +39,7 @@ async def get_dashboard_stats(
         "consented": consented,
         "enrolled": enrolled,
         "activeParticipants": active + enrolled,
+        "completed": completed_p,
         "openAEs": open_aes,
         "complianceRate": compliance_rate
     }
@@ -54,12 +56,14 @@ async def get_recruitment_funnel(
     screened = await db["participants"].count_documents({"status": {"$in": ["SCREENED", "CONSENTED", "ENROLLED", "ACTIVE", "COMPLETED"]}})
     consented = await db["participants"].count_documents({"status": {"$in": ["CONSENTED", "ENROLLED", "ACTIVE", "COMPLETED"]}})
     enrolled = await db["participants"].count_documents({"status": {"$in": ["ENROLLED", "ACTIVE", "COMPLETED"]}})
+    finished = await db["participants"].count_documents({"status": "COMPLETED"})
     
     return [
         {"label": "Started Inquiry", "value": leads, "color": "bg-cyan-500", "width": "100%"},
         {"label": "Completed Screener", "value": screened, "color": "bg-cyan-600", "width": f"{int((screened/max(leads,1))*100)}%"},
         {"label": "Signed Consent", "value": consented, "color": "bg-cyan-700", "width": f"{int((consented/max(leads,1))*100)}%"},
         {"label": "Finalized Enrollment", "value": enrolled, "color": "bg-emerald-500", "width": f"{int((enrolled/max(leads,1))*100)}%"},
+        {"label": "Study Completed", "value": finished, "color": "bg-indigo-500", "width": f"{int((finished/max(leads,1))*100)}%"},
     ]
 
 @router.get("/users")
@@ -96,24 +100,38 @@ async def approve_study(
     Approve a study that is currently UNDER_REVIEW.
     Sets status to ACTIVE.
     """
-    # Search by ID or Slug
+    # Search by ID or Slug in both collections
     study = None
+    collection_name = "api_study"
     try:
-        study = await db["studies"].find_one({"_id": ObjectId(study_id)})
+        obj_id = ObjectId(study_id)
+        study = await db["api_study"].find_one({"_id": obj_id})
+        if not study:
+            study = await db["studies"].find_one({"_id": obj_id})
+            collection_name = "studies"
     except Exception:
-        study = await db["studies"].find_one({"slug": study_id})
+        study = await db["api_study"].find_one({"slug": study_id})
+        if not study:
+            study = await db["studies"].find_one({"slug": study_id})
+            collection_name = "studies"
 
     if not study:
         raise HTTPException(status_code=404, detail="Study not found")
 
-    await db["studies"].update_one(
+    update_doc = {
+        "status": "ACTIVE" if collection_name == "studies" else "Recruiting",
+        "updatedAt": datetime.now(timezone.utc),
+        "approvedAt": datetime.now(timezone.utc),
+        "approvedBy": current_user.user_id
+    }
+    
+    if collection_name == "api_study":
+        update_doc["updated_at"] = update_doc["updatedAt"]
+        update_doc["is_active"] = True
+
+    await db[collection_name].update_one(
         {"_id": study["_id"]},
-        {"$set": {
-            "status": "ACTIVE",
-            "updatedAt": datetime.now(timezone.utc),
-            "approvedAt": datetime.now(timezone.utc),
-            "approvedBy": current_user.user_id
-        }}
+        {"$set": update_doc}
     )
     
     return {"status": "success", "message": "Study approved and is now ACTIVE"}

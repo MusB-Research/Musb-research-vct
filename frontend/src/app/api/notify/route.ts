@@ -88,7 +88,7 @@ export async function POST(req: Request) {
                             <p style="color: #64748b; font-size: 14px;">Best regards,<br><strong>The MusB Research Team</strong></p>
                         </div>
                         <div style="background: #f1f5f9; padding: 16px; text-align: center; color: #94a3b8; font-size: 12px;">
-                            MusB Research · Clinical Trial Platform · <a href="${appUrl}" style="color: #0ea5e9;">musb-research-vct.vercel.app</a>
+                            MusB Research · Clinical Trial Platform · <a href="${appUrl}" style="color: #0ea5e9;">musbhealth.com</a>
                         </div>
                     </div>`;
             } else if (status === "maybe") {
@@ -198,11 +198,13 @@ export async function POST(req: Request) {
                     subject: userMailSubject,
                     html: userMailHtml,
                 });
-                console.log(`[NOTIFY] ✅ User email sent to ${email}`);
+                console.log(`[NOTIFY] 📨 SUCCESS: Confirmation sent to participant (${email})`);
                 userSendSuccess = true;
-            } catch (userErr) {
-                console.error("[NOTIFY] ❌ Failed to send user email:", userErr);
+            } catch (userErr: any) {
+                console.error(`[NOTIFY] ❌ FAILURE: Could not send to participant (${email}):`, userErr.message);
             }
+        } else if (!email) {
+            console.log("[NOTIFY] ℹ️ INFO: Skipping participant email (no address provided)");
         }
 
         return NextResponse.json({

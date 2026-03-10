@@ -4,6 +4,7 @@ import { useState, Suspense } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Shield, Key, HeartPulse, Loader2, ArrowRight, AlertTriangle, CheckCircle2 } from "lucide-react";
 import Link from "next/link";
+import PasswordStrength from "@/components/PasswordStrength";
 
 function SetupPasswordForm() {
     const searchParams = useSearchParams();
@@ -49,9 +50,7 @@ function SetupPasswordForm() {
         e.preventDefault();
         setError("");
 
-        if (password.length < 8) {
-            return setError("Password must be at least 8 characters long.");
-        }
+        // Basic match check (complexity handled by backend & strength checker)
         if (password !== confirm) {
             return setError("Passwords do not match.");
         }
@@ -109,10 +108,13 @@ function SetupPasswordForm() {
                             required
                             value={password}
                             onChange={(e) => setPassword(e.target.value)}
+                            minLength={10}
+                            maxLength={32}
                             className="w-full bg-slate-900/50 border border-white/10 rounded-xl py-3.5 pl-11 pr-4 text-[13px] text-white focus:outline-none focus:border-cyan-500/50 focus:bg-slate-900 transition-all font-bold tracking-wide"
-                            placeholder="••••••••"
+                            placeholder="Secure password (10-32 chars)"
                         />
                     </div>
+                    <PasswordStrength password={password} />
                 </div>
 
                 <div>
@@ -154,7 +156,7 @@ export default function SetupPasswordPage() {
 
             <div className="relative w-full flex flex-col justify-center items-center p-6 z-10">
                 {/* Logo */}
-                <Link href="/" className="absolute top-8 left-8 flex items-center gap-3 group">
+                <a href="https://www.musbhealth.com/" className="absolute top-8 left-8 flex items-center gap-3 group">
                     <div className="w-10 h-10 rounded-2xl bg-cyan-500/10 border border-cyan-500/20 flex items-center justify-center group-hover:bg-cyan-500/20 group-hover:scale-105 transition-all">
                         <HeartPulse size={20} className="text-cyan-400 group-hover:text-cyan-300 transition-colors" />
                     </div>
@@ -162,7 +164,7 @@ export default function SetupPasswordPage() {
                         <h1 className="text-lg font-black text-white uppercase tracking-tight italic leading-none">MUSB</h1>
                         <p className="text-[10px] text-slate-500 font-bold tracking-[0.2em] uppercase mt-0.5">Research</p>
                     </div>
-                </Link>
+                </a>
 
                 {/* Form Card */}
                 <div className="w-full max-w-[440px] relative">

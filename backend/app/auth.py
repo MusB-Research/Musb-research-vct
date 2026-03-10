@@ -62,11 +62,12 @@ def decode_token(token: str) -> TokenData:
         user_id: str = payload.get("sub")
         email: str = payload.get("email")
         role: str = payload.get("role")
+        name: str = payload.get("name")
         modules: list = payload.get("modules", [])
         parent_sponsor_id: str = payload.get("parent_sponsor_id", None)
         if user_id is None:
             raise credentials_exception
-        return TokenData(user_id=user_id, email=email, role=role, modules=modules, parent_sponsor_id=parent_sponsor_id)
+        return TokenData(user_id=user_id, email=email, role=role, name=name, modules=modules, parent_sponsor_id=parent_sponsor_id)
     except InvalidTokenError:
         raise credentials_exception
 

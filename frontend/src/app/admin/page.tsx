@@ -86,6 +86,7 @@ export default function AdminDashboard() {
         { label: "Total Leads", value: (statsData.totalLeads || 0).toLocaleString(), change: "", icon: Users, color: "text-cyan-400" },
         { label: "Screened", value: (statsData.screened || 0).toLocaleString(), change: "", icon: TrendingUp, color: "text-purple-400" },
         { label: "Enrolled", value: (statsData.enrolled || 0).toLocaleString(), change: "", icon: ArrowUpRight, color: "text-emerald-400" },
+        { label: "Completed", value: (statsData.completed || 0).toLocaleString(), change: "", icon: CheckCircle2, color: "text-indigo-400" },
         { label: "Open AEs", value: (statsData.openAEs || 0).toString(), change: "", icon: AlertCircle, color: "text-red-400" },
     ] : [];
 

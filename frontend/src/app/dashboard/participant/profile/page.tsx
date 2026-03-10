@@ -2,7 +2,14 @@
 
 import { useSession } from "next-auth/react";
 import { useState } from "react";
-import { UserCircle, Mail, Phone, MapPin, Globe, PenSquare, ShieldCheck, Bell, Lock, Check, X, Send, ShieldAlert, KeyRound, Loader2 } from "lucide-react";
+import {
+    UserCircle, Mail, Phone, MapPin, Globe,
+    PenSquare, ShieldCheck, Bell, Lock, Check,
+    X, Send, ShieldAlert, KeyRound, Loader2,
+    Calendar, User, Edit3, Save, ChevronRight,
+    LogOut, Trash2, Camera
+} from "lucide-react";
+import PasswordStrength from "@/components/PasswordStrength";
 import { ParticipantAuth } from "@/lib/portal-auth";
 
 export default function ProfilePage() {
@@ -324,9 +331,14 @@ export default function ProfilePage() {
                                             required
                                             value={newPassword}
                                             onChange={(e) => setNewPassword(e.target.value)}
+                                            minLength={10}
+                                            maxLength={32}
                                             className="w-full bg-slate-950/50 border border-white/5 rounded-xl px-4 py-3 text-white focus:outline-none focus:border-cyan-500/50 transition-colors"
-                                            placeholder="••••••••"
+                                            placeholder="10-32 characters"
                                         />
+                                        <div className="col-span-2">
+                                            <PasswordStrength password={newPassword} />
+                                        </div>
                                     </div>
                                     <div>
                                         <label className="block text-[13px] font-black text-slate-500 uppercase tracking-widest mb-2">Confirm</label>
@@ -347,10 +359,10 @@ export default function ProfilePage() {
                                         <input
                                             type="text"
                                             value={otp}
-                                            onChange={(e) => setOtp(e.target.value)}
+                                            onChange={(e) => setOtp(e.target.value.replace(/[^a-zA-Z0-9]/g, "").slice(0, 8))}
                                             className="flex-1 bg-slate-950/50 border border-white/5 rounded-xl px-4 py-3 text-white focus:outline-none focus:border-cyan-500/50 transition-colors tracking-[0.5em] text-center font-mono"
-                                            placeholder="000000"
-                                            maxLength={6}
+                                            placeholder="a1B2c3D4"
+                                            maxLength={8}
                                         />
                                         <button
                                             type="button"

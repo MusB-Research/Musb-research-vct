@@ -6,7 +6,7 @@ from pydantic import BaseModel
 from typing import Any
 
 from app.database import get_db
-from app.auth import get_current_user, require_admin
+from app.auth import get_current_user, require_admin, require_coordinator_or_admin
 from app.utils.security import encrypt_data, decrypt_data
 import json
 
@@ -171,3 +171,51 @@ async def participant_logs(
     async for doc in db["dataLogs"].find(query).sort("loggedAt", -1).limit(200):
         result.append(_map_log(doc))
     return result
+# ─── Admin: Submit a Log on Behalf of Participant (Surrogate) ───────────────
+
+@router.post("/{participant_id}", response_model=LogOut, status_code=status.HTTP_201_CREATED)
+async def surrogate_submit_log(
+    participant_id: str,
+    body: LogCreate,
+    current_user=Depends(require_coordinator_or_admin),
+    db=Depends(get_db),
+):
+    """Admin/Coordinator: submit a log entry on behalf of a participant."""
+    if not ObjectId.is_valid(participant_id):
+        raise HTTPException(status_code=400, detail="Invalid participant ID")
+
+    participant = await db["participants"].find_one({"_id": ObjectId(participant_id)})
+    if not participant:
+        raise HTTPException(status_code=404, detail="Participant profile not found")
+
+    # HIPAA: Verify coordinator can only access logs for participants from their assigned study
+    if current_user.role == "COORDINATOR":
+        study_id = participant.get("studyId")
+        if not study_id:
+            raise HTTPException(status_code=403, detail="Access denied")
+
+        coordinator_user = await db["users"].find_one({"_id": ObjectId(current_user.user_id)})
+        assigned_studies = coordinator_user.get("assignedStudies", [])
+
+        if study_id not in assigned_studies:
+            raise HTTPException(status_code=403, detail="Access denied")
+
+    allowed_types = ["SUPPLEMENT", "VITALS", "SYMPTOM", "SURVEY", "MOOD", "SLEEP", "VISIT", "LAB"]
+    if body.type not in allowed_types:
+        raise HTTPException(status_code=400, detail=f"Log type must be one of: {allowed_types}")
+
+    now = datetime.now(timezone.utc)
+    doc = {
+        "participantId": str(participant["_id"]),
+        "userId": participant["userId"],
+        "type": body.type,
+        "data": encrypt_data(json.dumps(body.data)),
+        "notes": encrypt_data(body.notes),
+        "loggedAt": body.loggedAt or now,
+        "createdAt": now,
+        "isSurrogate": True,
+        "recorderId": current_user.user_id, # Track who actually entered the data
+    }
+    result = await db["dataLogs"].insert_one(doc)
+    created = await db["dataLogs"].find_one({"_id": result.inserted_id})
+    return _map_log(created)

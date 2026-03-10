@@ -37,11 +37,8 @@ const sponsoredStudies = [
         withdrawn: 6,
         startDate: "Jan 2025",
         endDate: "Jan 2026",
-        budget: 420000,
-        spent: 187400,
         primaryEndpoint: "VOC Biomarker Sensitivity ≥ 85%",
         site: "Hybrid (Remote + 2 Clinic Visits)",
-        compensation: "$850/participant",
         aeCount: 3,
         adherence: 91,
     },
@@ -141,6 +138,12 @@ export default function SponsorDashboard() {
     const [submitLoading, setSubmitLoading] = useState(false);
     const [submitSuccess, setSubmitSuccess] = useState(false);
     const [submitError, setSubmitError] = useState("");
+
+    // Quick Action States
+    const [showIrbModal, setShowIrbModal] = useState(false);
+    const [showFinanceModal, setShowFinanceModal] = useState(false);
+    const [autoInvite, setAutoInvite] = useState(false);
+
     const [formData, setFormData] = useState({
         title: "",
         description: "",
@@ -310,8 +313,10 @@ export default function SponsorDashboard() {
             <header className="border-b border-white/5 bg-[#0A1128]/90 backdrop-blur-xl sticky top-0 z-40">
                 <div className="max-w-7xl mx-auto px-4 sm:px-6 py-4 flex items-center justify-between">
                     <div className="flex items-center gap-2 sm:gap-4">
-                        <a href="https://www.musbhealth.com/">
-                            <img src="/musb research.png" alt="MUSB Research" className="h-6 sm:h-8 w-auto object-contain hover:opacity-80 transition-opacity" />
+                        <a href="https://www.musbhealth.com/" className="group">
+                            <div className="bg-white px-3 sm:px-4 py-1.5 rounded-full shadow-lg shadow-amber-500/10 transition-transform group-hover:scale-[1.02]">
+                                <img src="/musb research.png" alt="MUSB Research" className="h-5 sm:h-6 w-auto object-contain" />
+                            </div>
                         </a>
                         <div className="w-px h-6 bg-slate-800 hidden xs:block" />
                         <div className="hidden xs:flex items-center gap-2 px-3 py-1 bg-amber-500/10 border border-amber-500/20 rounded-full">
@@ -395,9 +400,6 @@ export default function SponsorDashboard() {
                                         <button className="flex items-center gap-3 w-full px-4 py-3 rounded-xl text-[13px] font-bold text-slate-400 hover:text-white hover:bg-white/5 transition-all text-left">
                                             <Shield size={16} className="text-amber-500/50" /> Portal Security
                                         </button>
-                                        <button className="flex items-center gap-3 w-full px-4 py-3 rounded-xl text-[13px] font-bold text-slate-400 hover:text-white hover:bg-white/5 transition-all text-left">
-                                            <FileText size={16} className="text-amber-500/50" /> Billing Details
-                                        </button>
                                         <div className="h-px bg-white/5 my-1" />
                                         <button onClick={handleSignOut} className="flex items-center gap-3 w-full px-4 py-3 rounded-xl text-[13px] font-bold text-red-400/80 hover:text-red-400 hover:bg-red-500/5 transition-all text-left text-red-400">
                                             <LogOut size={16} /> Sign Out Partner
@@ -421,12 +423,15 @@ export default function SponsorDashboard() {
                         </p>
                     </div>
                     <div className="flex flex-wrap gap-2 md:gap-3">
-                        <Link href="/studies" target="_blank" className="flex items-center gap-2 px-3 md:px-4 py-2 md:py-2.5 bg-slate-900 border border-white/10 hover:border-indigo-500/30 text-indigo-400 text-[11px] md:text-[13px] font-bold uppercase tracking-widest rounded-xl transition-all">
+                        <Link href="https://www.musbhealth.com/trials#current-studies" target="_blank" className="flex items-center gap-2 px-3 md:px-4 py-2 md:py-2.5 bg-slate-900 border border-white/10 hover:border-indigo-500/30 text-indigo-400 text-[11px] md:text-[13px] font-bold uppercase tracking-widest rounded-xl transition-all">
                             <ExternalLink size={13} /> Public Directory
                         </Link>
-                        <Link href="/sponsor/dashboard/new-study" className="flex items-center gap-2 px-3 md:px-4 py-2 md:py-2.5 bg-amber-600 hover:bg-amber-500 text-white text-[11px] md:text-[13px] font-bold uppercase tracking-widest rounded-xl transition-all shadow-lg shadow-amber-600/20">
+                        <button
+                            onClick={() => { setActiveTab("mystudies"); setShowSubmitForm(true); }}
+                            className="flex items-center gap-2 px-3 md:px-4 py-2 md:py-2.5 bg-amber-600 hover:bg-amber-500 text-white text-[11px] md:text-[13px] font-bold uppercase tracking-widest rounded-xl transition-all shadow-lg shadow-amber-600/20"
+                        >
                             <FlaskConical size={13} /> Inquire New Study
-                        </Link>
+                        </button>
                         <button
                             onClick={handleExportReport}
                             disabled={isExporting}
@@ -515,7 +520,6 @@ export default function SponsorDashboard() {
                                 { label: "Active Studies", value: stats?.activeStudies || 0, trend: "+1 this month", icon: FlaskConical, color: "text-amber-400", bg: "bg-amber-500/10" },
                                 { label: "Total Participants", value: stats?.totalParticipants || 0, trend: "Across all protocols", icon: Users, color: "text-cyan-400", bg: "bg-cyan-500/10" },
                                 { label: "Enrolled Rate", value: `${enrollmentPct}%`, trend: "Target: 85% avg", icon: TrendingUp, color: "text-emerald-400", bg: "bg-emerald-500/10" },
-                                { label: "Data Integrity", value: "99.8%", trend: "HIPAA Compliant", icon: Shield, color: "text-indigo-400", bg: "bg-indigo-500/10" },
                             ].map((kpi, idx) => (
                                 <div key={idx} className="glass p-6 rounded-3xl border border-white/5 bg-slate-900/40 relative overflow-hidden group">
                                     <div className={`absolute top-0 right-0 w-24 h-24 ${kpi.bg} rounded-full blur-[40px] translate-x-1/2 -translate-y-1/2`} />
@@ -539,7 +543,12 @@ export default function SponsorDashboard() {
                         <div className="glass border border-white/5 rounded-3xl overflow-hidden bg-slate-900/40">
                             <div className="px-8 py-6 border-b border-white/5 flex items-center justify-between">
                                 <h2 className="text-sm font-black text-white uppercase tracking-[0.2em] italic">My Pipeline</h2>
-                                <button className="text-[13px] font-black uppercase text-amber-500 hover:text-amber-400 transition-colors">View All Protocols</button>
+                                <button
+                                    onClick={() => setActiveTab("mystudies")}
+                                    className="text-[13px] font-black uppercase text-amber-500 hover:text-amber-400 transition-colors"
+                                >
+                                    View All Protocols
+                                </button>
                             </div>
                             <div className="divide-y divide-white/5">
                                 {loading ? (
@@ -550,7 +559,12 @@ export default function SponsorDashboard() {
                                 ) : studies.length === 0 ? (
                                     <div className="p-12 text-center text-slate-500">
                                         <p className="text-[13px] font-bold uppercase tracking-widest mb-4">No studies found</p>
-                                        <Link href="/sponsor/dashboard/new-study" className="text-amber-500 font-bold hover:underline">Inquire about your first protocol</Link>
+                                        <button
+                                            onClick={() => { setActiveTab("mystudies"); setShowSubmitForm(true); }}
+                                            className="text-amber-500 font-bold hover:underline"
+                                        >
+                                            Inquire about your first protocol
+                                        </button>
                                     </div>
                                 ) : studies.map((s, idx) => (
                                     <div key={idx} className="p-8 hover:bg-white/[0.02] transition-all group flex flex-col md:flex-row md:items-center justify-between gap-6">
@@ -614,12 +628,15 @@ export default function SponsorDashboard() {
                                 <h3 className="text-sm font-black text-white uppercase tracking-[0.2em] italic mb-8">Quick Actions</h3>
                                 <div className="space-y-3">
                                     {[
-                                        { label: "Request IRB Review", icon: Shield },
-                                        { label: "Invite Coordinators", icon: Users },
-                                        { label: "Financial Summary", icon: DollarSign },
-                                        { label: "Contact Support", icon: MessageSquare },
+                                        { label: "Request IRB Review", icon: Shield, action: () => setShowIrbModal(true) },
+                                        { label: "Invite Coordinators", icon: Users, action: () => { setAutoInvite(true); setActiveTab("team"); } },
+                                        { label: "Contact Support", icon: MessageSquare, action: () => { window.location.href = "mailto:support@musbresearch.com"; } },
                                     ].map((action, i) => (
-                                        <button key={i} className="w-full flex items-center justify-between p-4 rounded-2xl bg-slate-950 border border-white/5 hover:border-amber-500/30 transition-all group">
+                                        <button
+                                            key={i}
+                                            onClick={action.action}
+                                            className="w-full flex items-center justify-between p-4 rounded-2xl bg-slate-950 border border-white/5 hover:border-amber-500/30 transition-all group text-left"
+                                        >
                                             <div className="flex items-center gap-3">
                                                 <action.icon size={16} className="text-slate-600 group-hover:text-amber-500 transition-colors" />
                                                 <span className="text-[13px] font-bold text-slate-400 group-hover:text-white transition-colors">{action.label}</span>
@@ -1022,8 +1039,6 @@ export default function SponsorDashboard() {
                             {[
                                 { title: "Enrollment & Retention Report", desc: "Weekly breakdown of screening, enrollment, and dropout rates.", date: "Auto-generated weekly", icon: BarChart3, color: "cyan" },
                                 { title: "Safety Summary Report", desc: "All adverse events, severity classifications, and resolution status.", date: "Auto-generated monthly", icon: Shield, color: "rose" },
-                                { title: "Data Quality Report", desc: "Form completion rates, missing data flags, and ePRO compliance.", date: "Auto-generated monthly", icon: Activity, color: "indigo" },
-                                { title: "Financial Report", desc: "Budget burn rate, per-participant cost, and forecast to completion.", date: "Auto-generated monthly", icon: DollarSign, color: "amber" },
                             ].map((r) => (
                                 <div key={r.title} className="glass border border-white/5 rounded-2xl p-6 hover:border-white/10 transition-all group">
                                     <div className="flex items-start gap-4">
@@ -1056,8 +1071,57 @@ export default function SponsorDashboard() {
                     TEAM MANAGEMENT TAB
                 ═══════════════════════════════════════════════════════ */}
                 {activeTab === "team" && (
-                    <TeamManagementTab studies={studies} />
+                    <TeamManagementTab studies={studies} autoInvite={autoInvite} />
                 )}
+
+                {/* ── IRB Request Modal ── */}
+                {showIrbModal && (
+                    <div className="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-black/80 backdrop-blur-md animate-in fade-in duration-300">
+                        <div className="bg-slate-950 border border-white/10 rounded-[2.5rem] p-10 w-full max-w-2xl shadow-2xl relative overflow-hidden group">
+                            <div className="absolute top-0 right-0 w-64 h-64 bg-amber-500/5 rounded-full blur-[80px] -translate-y-1/2 translate-x-1/2" />
+                            <div className="flex justify-between items-start mb-8 relative z-10">
+                                <div className="p-4 bg-amber-500/10 rounded-2xl text-amber-500 flex items-center gap-3">
+                                    <Shield size={24} />
+                                    <div>
+                                        <h2 className="text-xl font-black uppercase tracking-tight italic">Protocol IRB Request</h2>
+                                        <p className="text-[11px] font-black uppercase tracking-widest text-amber-500/70">Centralized Submission System</p>
+                                    </div>
+                                </div>
+                                <button onClick={() => setShowIrbModal(false)} className="p-2 text-slate-500 hover:text-white bg-white/5 rounded-full transition-all">
+                                    <X size={20} />
+                                </button>
+                            </div>
+                            <div className="space-y-6 relative z-10">
+                                <div>
+                                    <label className="block text-[11px] font-black text-slate-500 uppercase tracking-widest mb-3">Target Protocol</label>
+                                    <select className="w-full bg-slate-900/80 border border-white/5 rounded-2xl px-6 py-4 text-white focus:outline-none focus:border-amber-500/50 appearance-none shadow-inner">
+                                        {studies.map(s => <option key={s.id} value={s.id}>{s.title}</option>)}
+                                        {studies.length === 0 && <option>{study.title}</option>}
+                                    </select>
+                                </div>
+                                <div>
+                                    <label className="block text-[11px] font-black text-slate-500 uppercase tracking-widest mb-3">Request Specification</label>
+                                    <textarea
+                                        rows={4}
+                                        className="w-full bg-slate-900/80 border border-white/5 rounded-2xl px-6 py-4 text-white focus:outline-none focus:border-amber-500/50 resize-none transition-all placeholder:text-slate-700"
+                                        placeholder="Describe the clinical rationale for this amendment or new protocol review..."
+                                    />
+                                </div>
+                                <div className="border-2 border-dashed border-white/5 rounded-2xl p-8 text-center hover:border-amber-500/30 transition-all group cursor-pointer bg-amber-500/[0.01]">
+                                    <div className="w-12 h-12 bg-slate-900 rounded-xl flex items-center justify-center mx-auto mb-3 group-hover:scale-110 transition-transform">
+                                        <Download className="text-amber-500 rotate-180" size={20} />
+                                    </div>
+                                    <p className="text-sm font-bold text-slate-300">Drop Protocol Docs Here</p>
+                                    <p className="text-[11px] text-slate-600 mt-1 uppercase font-black">PDF, DOCX · Max 20MB</p>
+                                </div>
+                                <button onClick={() => { alert("Submission Successful — MUSB Concierge will notify you shortly."); setShowIrbModal(false); }} className="w-full py-4 bg-gradient-to-r from-amber-600 to-amber-500 text-white font-black uppercase tracking-widest rounded-2xl shadow-xl shadow-amber-600/20 hover:scale-[1.01] transition-all">
+                                    Initiate Review Process
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                )}
+
             </div>
         </div>
     );

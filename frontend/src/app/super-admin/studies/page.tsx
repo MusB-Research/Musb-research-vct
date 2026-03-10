@@ -176,9 +176,16 @@ export default function SuperAdminStudiesPage() {
                                             </td>
                                             <td className="py-4 px-5 text-sm text-slate-400">{study.condition || "—"}</td>
                                             <td className="py-4 px-5">
-                                                <span className={`text-[11px] font-black px-2 py-1 rounded-lg border ${STATUS_STYLES[study.status] || STATUS_STYLES.DRAFT}`}>
-                                                    {study.status}
-                                                </span>
+                                                <div className="flex flex-col gap-1">
+                                                    <span className={`text-[10px] w-fit font-black px-1.5 py-0.5 rounded border ${STATUS_STYLES[study.status] || STATUS_STYLES.DRAFT}`}>
+                                                        {study.status}
+                                                    </span>
+                                                    {study.source && (
+                                                        <span className={`text-[9px] font-black tracking-tighter uppercase opacity-60 ${study.source === 'WEBSITE' ? 'text-amber-400' : 'text-cyan-400'}`}>
+                                                            {study.source}
+                                                        </span>
+                                                    )}
+                                                </div>
                                             </td>
                                             <td className="py-4 px-5 text-sm text-slate-400">
                                                 {study.targetParticipants?.toLocaleString() || "—"}

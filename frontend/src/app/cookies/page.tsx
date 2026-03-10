@@ -28,10 +28,10 @@ export default function CookieSettings() {
     return (
         <div className="min-h-screen pt-32 pb-20 px-6">
             <div className="max-w-3xl mx-auto">
-                <Link href="/" className="inline-flex items-center text-cyan-400 hover:text-cyan-300 mb-8 gap-2 transition-colors">
+                <a href="https://www.musbhealth.com/" className="inline-flex items-center text-cyan-400 hover:text-cyan-300 mb-8 gap-2 transition-colors">
                     <ArrowLeft size={16} />
                     <span className="text-sm font-bold uppercase tracking-widest">Back to Home</span>
-                </Link>
+                </a>
 
                 <h1 className="text-4xl font-bold text-white mb-4">Performance & Cookie Settings</h1>
                 <p className="text-slate-400 mb-12">Adjust how MusB Research loads on your device. We use cookies to remember your preferences and optimize your experience.</p>
@@ -53,8 +53,8 @@ export default function CookieSettings() {
                                     <button
                                         onClick={() => saveSettings('high')}
                                         className={`p-4 rounded-2xl border transition-all text-left group ${perfMode === 'high'
-                                                ? 'bg-cyan-500/10 border-cyan-500/50 ring-1 ring-cyan-500/50'
-                                                : 'bg-slate-900/50 border-white/5 hover:border-white/10'
+                                            ? 'bg-cyan-500/10 border-cyan-500/50 ring-1 ring-cyan-500/50'
+                                            : 'bg-slate-900/50 border-white/5 hover:border-white/10'
                                             }`}
                                     >
                                         <div className="font-bold text-white mb-1">Standard (Full Bio-Tech)</div>
@@ -63,8 +63,8 @@ export default function CookieSettings() {
                                     <button
                                         onClick={() => saveSettings('low')}
                                         className={`p-4 rounded-2xl border transition-all text-left group ${perfMode === 'low'
-                                                ? 'bg-cyan-500/10 border-cyan-500/50 ring-1 ring-cyan-500/50'
-                                                : 'bg-slate-900/50 border-white/5 hover:border-white/10'
+                                            ? 'bg-cyan-500/10 border-cyan-500/50 ring-1 ring-cyan-500/50'
+                                            : 'bg-slate-900/50 border-white/5 hover:border-white/10'
                                             }`}
                                     >
                                         <div className="font-bold text-white mb-1">Fast Loading (Reduced Motion)</div>

@@ -211,7 +211,7 @@ export default function NewStudyInquiryPage() {
                             <ChevronLeft size={20} />
                         </button>
                         <a href="https://www.musbhealth.com/">
-                            <img src="/musb research.png" alt="MUSB Research" className="h-7 w-auto object-contain hover:opacity-80 transition-opacity" />
+                            <img src="/musb research.png" alt="MUSB Research" className="h-7 w-auto object-contain rounded-lg sm:rounded-xl hover:opacity-80 transition-opacity" />
                         </a>
                         <div className="w-px h-5 bg-slate-800" />
                         <span className="text-amber-400 text-[13px] font-black uppercase tracking-widest">Study Inquiry</span>

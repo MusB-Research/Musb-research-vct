@@ -22,8 +22,11 @@ export default function AdminLoginPage() {
             if (status === "authenticated" && session?.user) {
                 const u = session.user as any;
                 const s = session as any;
+                const roleUpper = u.role?.toUpperCase() || "";
                 const ADMIN_ROLES = new Set(["ADMIN", "COORDINATOR", "PI", "DATA_MANAGER"]);
-                if (ADMIN_ROLES.has(u.role?.toUpperCase())) {
+                const SPONSOR_ROLES = new Set(["SPONSOR", "SPONSOR_ADMIN", "STUDY_MANAGER", "VIEWER"]);
+
+                if (ADMIN_ROLES.has(roleUpper)) {
                     if (!s.accessToken) {
                         await signOut({ redirect: false });
                         window.location.href = "https://www.musbhealth.com/";
@@ -40,10 +43,12 @@ export default function AdminLoginPage() {
                         });
                     }
                     router.replace("/admin");
-                } else if (u.role === "PARTICIPANT") {
+                } else if (roleUpper === "PARTICIPANT") {
                     router.replace("/dashboard/participant");
-                } else if (u.role === "SPONSOR") {
+                } else if (SPONSOR_ROLES.has(roleUpper)) {
                     router.replace("/sponsor/dashboard");
+                } else if (roleUpper === "SUPER_ADMIN") {
+                    router.replace("/super-admin");
                 }
             }
         };
@@ -58,50 +63,54 @@ export default function AdminLoginPage() {
         const apiUrl = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
         const ADMIN_ROLES = new Set(["ADMIN", "COORDINATOR", "PI", "DATA_MANAGER"]);
 
-        // Step 1: Authenticate directly with the FastAPI backend
-        const formBody = new URLSearchParams({ username: email, password });
-        const res = await fetch(`${apiUrl}/api/auth/login`, {
-            method: "POST",
-            headers: { "Content-Type": "application/x-www-form-urlencoded" },
-            body: formBody.toString(),
-        });
+        try {
+            // Step 1: Authenticate directly with the FastAPI backend
+            const formBody = new URLSearchParams({ username: email, password });
+            const res = await fetch(`${apiUrl}/api/auth/login`, {
+                method: "POST",
+                headers: { "Content-Type": "application/x-www-form-urlencoded" },
+                body: formBody.toString(),
+            });
 
-        if (!res.ok) {
-            const err = await res.json().catch(() => ({}));
-            setError(err.detail || "Access denied. Invalid credentials.");
+            if (!res.ok) {
+                const err = await res.json().catch(() => ({}));
+                setError(err.detail || "Access denied. Invalid credentials.");
+                return;
+            }
+
+            const tokenData = await res.json();
+            const role: string = tokenData.role?.toUpperCase() || "";
+
+            // Strict portal gating — only admin roles can use this portal
+            if (!ADMIN_ROLES.has(role)) {
+                setError("Access denied. This portal is for authorized personnel only.");
+                return;
+            }
+
+            // Step 2: Fetch full user profile
+            const meRes = await fetch(`${apiUrl}/api/auth/me`, {
+                headers: { Authorization: `Bearer ${tokenData.access_token}` },
+            });
+            const user = meRes.ok ? await meRes.json() : { id: "", name: email, email, role };
+
+            // Step 3: Always save to THIS TAB's sessionStorage (overwrites stale sessions)
+            AdminAuth.save(tokenData.access_token, {
+                id: user.id || "",
+                name: user.name || email,
+                email: user.email || email,
+                role,
+            });
+
+            // Step 4: Also sign in via NextAuth (for middleware compat — must await before navigation)
+            await signIn("credentials", { email, password, allowedRole: "ADMIN,COORDINATOR,PI,DATA_MANAGER", redirect: false });
+
+            router.push("/admin");
+        } catch (err: any) {
+            console.error("Admin login error:", err);
+            setError("Connection failed. Please check your network or try again.");
+        } finally {
             setLoading(false);
-            return;
         }
-
-        const tokenData = await res.json();
-        const role: string = tokenData.role?.toUpperCase() || "";
-
-        // Strict portal gating — only admin roles can use this portal
-        if (!ADMIN_ROLES.has(role)) {
-            setError("Access denied. This portal is for authorized personnel only.");
-            setLoading(false);
-            return;
-        }
-
-        // Step 2: Fetch full user profile
-        const meRes = await fetch(`${apiUrl}/api/auth/me`, {
-            headers: { Authorization: `Bearer ${tokenData.access_token}` },
-        });
-        const user = meRes.ok ? await meRes.json() : { id: "", name: email, email, role };
-
-        // Step 3: Save to THIS TAB's sessionStorage (isolated from other tabs)
-        AdminAuth.save(tokenData.access_token, {
-            id: user.id || "",
-            name: user.name || email,
-            email: user.email || email,
-            role,
-        });
-
-        // Step 4: Also sign in via NextAuth (for middleware compat — must await before navigation)
-        await signIn("credentials", { email, password, allowedRole: "ADMIN,COORDINATOR,PI,DATA_MANAGER", redirect: false });
-
-        router.push("/admin");
-        setLoading(false);
     };
 
     if (status === "authenticated") {
@@ -137,7 +146,7 @@ export default function AdminLoginPage() {
                     <div className="relative z-10">
                         <div className="text-center mb-10">
                             <a href="https://www.musbhealth.com/" className="inline-flex items-center gap-2 mb-6">
-                                <img src="/musb research.png" alt="MUSB Research" className="h-10 w-auto object-contain hover:opacity-80 transition-opacity" />
+                                <img src="/musb research.png" alt="MUSB Research" className="h-10 w-auto object-contain rounded-xl hover:opacity-80 transition-opacity" />
                             </a>
                             <h1 className="text-2xl font-black text-white italic tracking-tight mb-2">
                                 Admin Console

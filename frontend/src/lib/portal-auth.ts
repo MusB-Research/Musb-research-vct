@@ -74,6 +74,13 @@ export const AdminAuth = {
     clear: () => clear(A_KEY),
 };
 
+/**
+ * SponsorAuth — alias for AdminAuth that sponsors use for their portal.
+ * Both use the same sessionStorage key (musb_a) since sponsors and admins
+ * are never in the same tab simultaneously. Each tab maintains its own isolated session.
+ */
+export const SponsorAuth = AdminAuth;
+
 // ── Super Admin Portal ────────────────────────────────────────────────────────
 export const SuperAdminAuth = {
     save: (token: string, user: PortalUser) => save(SA_KEY, token, user),

@@ -9,10 +9,14 @@ const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://127.0.0.1:8000";
 const ROLE_REDIRECT: Record<string, string> = {
     ADMIN: "/admin",
     COORDINATOR: "/admin",
-    SPONSOR: "/sponsor/dashboard",
-    PARTICIPANT: "/dashboard/participant",
     PI: "/admin",
     DATA_MANAGER: "/admin",
+    SPONSOR: "/sponsor/dashboard",
+    SPONSOR_ADMIN: "/sponsor/dashboard",
+    STUDY_MANAGER: "/sponsor/dashboard",
+    VIEWER: "/sponsor/dashboard",
+    SUPER_ADMIN: "/super-admin",
+    PARTICIPANT: "/dashboard/participant",
 };
 
 export const authOptions: NextAuthOptions = {

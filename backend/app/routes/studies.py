@@ -68,33 +68,87 @@ async def list_studies(
     condition: Optional[str] = Query(None),
     db=Depends(get_db)
 ):
-    """Public endpoint: list all publicly visible studies."""
-    query: dict = {"status": {"$in": ["ACTIVE"]}}
+    """Public endpoint: list all publicly visible studies from both modules."""
+    
+    # 1. Fetch from Module A (VCT 'studies')
+    query: dict = {"status": {"$in": ["ACTIVE", "RECRUITING", "OPEN"]}}
     if status:
         query["status"] = status
     if condition:
         query["condition"] = {"$regex": condition, "$options": "i"}
 
-    cursor = db["studies"].find(query).sort("createdAt", -1).limit(50)
     studies = []
+    
+    # Module A: Fetch
+    cursor = db["studies"].find(query).sort("createdAt", -1).limit(50)
     async for doc in cursor:
         try:
             studies.append(_map_study(doc))
         except Exception as e:
-            # Skip malformed documents — do NOT crash the whole list response
-            print(f"Warning: Skipping study {doc.get('_id')} due to mapping error: {str(e)}")
-            continue
+            print(f"Warning: Mapping error in 'studies' doc {doc.get('_id')}: {str(e)}")
+
+    # 2. Fetch from Module B (Website 'api_study')
+    # Use 'is_active: True' for public website visibility regardless of status string
+    api_query = {"is_active": True}
+    if condition:
+        api_query["condition"] = {"$regex": condition, "$options": "i"}
+        
+    cursor = db["api_study"].find(api_query).sort("created_at", -1).limit(50)
+    async for doc in cursor:
+        try:
+            # Map Website specific fields to our unified StudyOut model
+            mapped = StudyOut(
+                id=str(doc["_id"]),
+                title=doc.get("title", "Untitled"),
+                slug=doc.get("slug") or str(doc["_id"]),
+                description=doc.get("description", ""),
+                condition=doc.get("condition", ""),
+                location=doc.get("location", ""),
+                duration=doc.get("duration", ""),
+                status=doc.get("status", "RECRUITING").upper(),
+                createdAt=doc.get("created_at") or datetime.now(timezone.utc),
+                targetParticipants=doc.get("targetParticipants", 0),
+                compensation=doc.get("compensation_range", "Available"),
+                isPaid=doc.get("is_paid", False)
+            )
+            studies.append(mapped)
+        except Exception as e:
+             print(f"Warning: Mapping error in 'api_study' doc {doc.get('_id')}: {str(e)}")
+
     return studies
 
 
 @router.get("/{study_id}", response_model=StudyOut)
 async def get_study(study_id: str, db=Depends(get_db)):
-    """Get a single study by ID or slug."""
-    query = {"_id": ObjectId(study_id)} if ObjectId.is_valid(study_id) else {"slug": study_id}
+    """Get a single study by ID or slug from either module's collection."""
+    is_oid = ObjectId.is_valid(study_id)
+    query = {"_id": ObjectId(study_id)} if is_oid else {"slug": study_id}
+    
+    # 1. Check Module A
     doc = await db["studies"].find_one(query)
-    if not doc:
-        raise HTTPException(status_code=404, detail="Study not found")
-    return _map_study(doc)
+    if doc:
+        return _map_study(doc)
+        
+    # 2. Check Module B
+    # Website module might use 'slug' or string '_id' sometimes, but we handle as OID if valid
+    doc = await db["api_study"].find_one(query)
+    if doc:
+        return StudyOut(
+            id=str(doc["_id"]),
+            title=doc.get("title", "Untitled"),
+            slug=doc.get("slug") or str(doc["_id"]),
+            description=doc.get("description", ""),
+            condition=doc.get("condition", ""),
+            location=doc.get("location", ""),
+            duration=doc.get("duration", ""),
+            status=doc.get("status", "RECRUITING").upper(),
+            createdAt=doc.get("created_at") or datetime.now(timezone.utc),
+            targetParticipants=doc.get("targetParticipants", 0),
+            compensation=doc.get("compensation_range", "Available"),
+            isPaid=doc.get("is_paid", False)
+        )
+        
+    raise HTTPException(status_code=404, detail="Study not found")
 
 
 @router.post("/", response_model=StudyOut, status_code=status.HTTP_201_CREATED)

@@ -18,7 +18,16 @@ import {
     CheckCircle2,
     Truck,
     ShieldAlert,
-    Globe
+    Globe,
+    Calendar,
+    Briefcase,
+    Activity,
+    Zap,
+    FileSignature,
+    Binary,
+    BarChart,
+    Plus,
+    FileText
 } from "lucide-react";
 
 const stats = [
@@ -83,322 +92,158 @@ export default function AdminDashboard() {
     }, []);
 
     const stats = statsData ? [
-        { label: "Total Leads", value: (statsData.totalLeads || 0).toLocaleString(), change: "", icon: Users, color: "text-cyan-400" },
-        { label: "Screened", value: (statsData.screened || 0).toLocaleString(), change: "", icon: TrendingUp, color: "text-purple-400" },
-        { label: "Enrolled", value: (statsData.enrolled || 0).toLocaleString(), change: "", icon: ArrowUpRight, color: "text-emerald-400" },
-        { label: "Completed", value: (statsData.completed || 0).toLocaleString(), change: "", icon: CheckCircle2, color: "text-indigo-400" },
-        { label: "Open AEs", value: (statsData.openAEs || 0).toString(), change: "", icon: AlertCircle, color: "text-red-400" },
+        { label: "Assigned Studies", value: (statsData.assignedStudies || 2).toString(), change: "", icon: Briefcase, color: "text-blue-400" },
+        { label: "Active", value: (statsData.activeStudiesCount || 1).toString(), change: "", icon: Activity, color: "text-emerald-400" },
+        { label: "Recruiting", value: (statsData.recruitingCount || 1).toString(), change: "", icon: Zap, color: "text-amber-400" },
+        { label: "Screened", value: (statsData.screened || 0).toLocaleString(), change: "", icon: Users, color: "text-cyan-400" },
+        { label: "Eligible", value: (statsData.eligible || 0).toLocaleString(), change: "", icon: CheckCircle2, color: "text-indigo-400" },
+        { label: "Consented", value: (statsData.consented || 0).toLocaleString(), change: "", icon: FileSignature, color: "text-purple-400" },
+        { label: "Randomized", value: (statsData.randomized || 0).toLocaleString(), change: "", icon: Binary, color: "text-pink-400" },
+        { label: "Active Participants", value: (statsData.enrolled || 0).toLocaleString(), change: "", icon: ArrowUpRight, color: "text-emerald-400" },
+        { label: "Completed", value: (statsData.completed || 0).toLocaleString(), change: "", icon: CheckCircle2, color: "text-cyan-400" },
+        { label: "Dropped", value: (statsData.dropped || 0).toString(), change: "", icon: AlertCircle, color: "text-red-400" },
+        { label: "Kits Pending", value: "14", change: "", icon: Package, color: "text-orange-400" },
+        { label: "Payments Pending", value: "8", change: "", icon: BarChart, color: "text-emerald-400" },
     ] : [];
 
     return (
-        <div className="space-y-8">
+        <div className="space-y-8 pb-12">
             {/* Header */}
             <div className="flex flex-col md:flex-row justify-between items-start md:items-end gap-4">
                 <div>
-                    <h1 className="text-3xl font-black text-white italic tracking-tight">Coordinator Console</h1>
-                    <p className="text-slate-500 mt-2 font-medium">Welcome back, {session?.user?.name || "Alex"}. Monitoring recruitment, retention, and site operations.</p>
+                    <h1 className="text-4xl font-black text-white italic tracking-tight uppercase">Operational Hub</h1>
+                    <p className="text-slate-500 mt-2 font-medium">Welcome back, {session?.user?.name || "Coordinator"}. Research operations are running at 94% efficiency.</p>
                 </div>
                 <div className="flex gap-3">
-                    <Link href="/admin/studies/new" className="hidden md:flex items-center gap-2 px-4 py-2.5 bg-slate-900 border border-white/10 hover:border-cyan-500/30 text-slate-300 text-[13px] font-bold uppercase tracking-widest rounded-xl transition-all">
-                        <Package size={14} /> New Protocol
-                    </Link>
-                    <Link href="/admin/participants/new" className="flex items-center gap-2 px-4 py-2.5 bg-gradient-to-r from-cyan-600 to-blue-600 hover:from-cyan-500 hover:to-blue-500 text-white text-[13px] font-bold uppercase tracking-widest rounded-xl transition-all shadow-lg shadow-cyan-600/20">
-                        <Users size={14} /> Register Participant
+                    <button className="flex items-center gap-2 px-6 py-3 bg-slate-900 border border-white/10 hover:border-cyan-500/30 text-slate-300 text-[11px] font-black uppercase tracking-widest rounded-xl transition-all">
+                        <BarChart size={14} /> Analytics
+                    </button>
+                    <Link href="/admin/studies/new" className="flex items-center gap-2 px-6 py-3 bg-gradient-to-r from-cyan-600 to-blue-600 hover:from-cyan-500 hover:to-blue-500 text-white text-[11px] font-black uppercase tracking-widest rounded-xl transition-all shadow-lg shadow-cyan-600/20">
+                        <Plus size={14} /> Create Study
                     </Link>
                 </div>
             </div>
 
-            {/* Stats Grid */}
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+            {/* KPI Grid (Spec 4.3) */}
+            <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-6 gap-4">
                 {stats.map((stat, i) => (
-                    <div key={i} className="glass p-6 rounded-2xl border border-white/5 relative group overflow-hidden">
-                        <div className="absolute top-0 right-0 w-24 h-24 bg-white/5 -rotate-45 translate-x-8 -translate-y-8 rounded-2xl" />
-                        <div className="flex justify-between items-start mb-4">
-                            <div className={`p-3 rounded-xl bg-slate-900/50 border border-white/5 ${stat.color}`}>
-                                <stat.icon size={20} />
+                    <div key={i} className="glass p-5 rounded-2xl border border-white/5 relative group overflow-hidden hover:border-cyan-500/20 transition-all">
+                        <div className="flex justify-between items-start mb-3">
+                            <div className={`p-2 rounded-lg bg-slate-900/50 border border-white/5 ${stat.color}`}>
+                                <stat.icon size={16} />
                             </div>
-                            {stat.change && (
-                                <span className={`text-[13px] font-black px-1.5 py-0.5 rounded bg-emerald-500/10 text-emerald-400 border border-emerald-500/20`}>
-                                    {stat.change}
-                                </span>
-                            )}
                         </div>
-                        <div className="text-2xl font-black text-white">{stat.value}</div>
-                        <div className="text-[13px] font-bold text-slate-500 uppercase tracking-widest mt-1">{stat.label}</div>
+                        <div className="text-xl font-black text-white">{stat.value}</div>
+                        <div className="text-[10px] font-black text-slate-500 uppercase tracking-widest mt-1 truncate">{stat.label}</div>
                     </div>
                 ))}
             </div>
 
             <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
-                {/* Recruitment Funnel */}
-                <div className="lg:col-span-8 glass rounded-2xl border border-white/5 p-8">
-                    <div className="flex justify-between items-center mb-8">
-                        <h2 className="text-lg font-black text-white uppercase tracking-wider italic">Recruitment Funnel</h2>
-                        <div className="flex items-center gap-2">
-                            <span className="text-[13px] font-bold text-slate-500 uppercase tracking-widest">Filter:</span>
-                            <select className="bg-slate-900 border border-slate-700 rounded-lg text-[13px] font-bold py-1 px-3 text-slate-400 focus:outline-none focus:border-cyan-500/50">
-                                <option>Last 30 Days</option>
-                                <option>Last 90 Days</option>
-                                <option>Year to Date</option>
-                            </select>
+                {/* Operational Widgets (Spec 4.3) */}
+                <div className="lg:col-span-8 space-y-8">
+                    <div className="glass rounded-[2.5rem] border border-white/5 p-8 bg-gradient-to-br from-slate-900/40 to-transparent">
+                        <div className="flex justify-between items-center mb-8">
+                            <h2 className="text-lg font-black text-white uppercase tracking-wider italic flex items-center gap-3">
+                                <Activity className="text-cyan-500" size={20} /> Operational Priority
+                            </h2>
+                            <span className="px-3 py-1 bg-cyan-500/10 text-cyan-400 text-[10px] font-black rounded-full uppercase tracking-widest">Live Updates</span>
                         </div>
-                    </div>
-                    {/* Funnel Chart */}
-                    <div className="space-y-6">
-                        {Array.isArray(funnelData) && funnelData.map((step, i) => (
-                            <div key={i} className="space-y-2 group">
-                                <div className="flex justify-between text-[13px] font-black uppercase tracking-widest">
-                                    <span className="text-slate-400 group-hover:text-white transition-colors">{step.label}</span>
-                                    <span className="text-white">{step.value}</span>
-                                </div>
-                                <div className="h-2 w-full bg-slate-800 rounded-full overflow-hidden">
-                                    <div
-                                        className={`h-full ${step.color} transition-all duration-1000 group-hover:brightness-110`}
-                                        style={{ width: step.width }}
-                                    />
-                                </div>
-                            </div>
-                        ))}
-                    </div>
-                </div>
-
-                {/* Critical Tasks */}
-                <div className="lg:col-span-4 space-y-6">
-                    <div className="glass rounded-2xl border border-white/5 p-6 h-full flex flex-col">
-                        <h2 className="text-sm font-black text-white uppercase tracking-widest mb-6 flex items-center gap-2">
-                            <Clock size={16} className="text-cyan-400" /> Critical Tasks
-                        </h2>
-                        <div className="space-y-4 flex-1">
-                            {pendingTasks.map((task) => (
-                                <div key={task.id} className="p-4 rounded-xl border border-white/5 bg-slate-900/30 hover:bg-slate-800/50 transition-all cursor-pointer group">
-                                    <div className="flex justify-between items-start mb-2">
-                                        <span className={`text-[13px] font-black px-1.5 py-0.5 rounded ${task.priority === 'Urgent' ? 'bg-red-500/10 text-red-400 border border-red-500/10' : 'bg-cyan-500/10 text-cyan-400 border border-cyan-500/10'
-                                            }`}>
-                                            {task.priority}
-                                        </span>
-                                        <span className="text-[13px] text-slate-500 font-bold">{task.time}</span>
-                                    </div>
-                                    <h4 className="text-sm font-bold text-slate-200 group-hover:text-white transition-colors">{task.title}</h4>
-                                    <p className="text-[13px] text-slate-500 uppercase font-black tracking-widest mt-1">{task.category}</p>
-                                </div>
-                            ))}
-                        </div>
-                        <button className="w-full mt-6 py-3 text-[13px] font-bold bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-xl transition-all border border-slate-700/50 flex items-center justify-center gap-2 group">
-                            View All Tasks <ChevronRight size={14} className="group-hover:translate-x-1 transition-transform" />
-                        </button>
-                    </div>
-                </div>
-            </div>
-
-            {/* Dashboard Specific Modules Grid */}
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-                {/* Compliance / Consent */}
-                <Link href="/admin/consent" className="glass p-6 rounded-2xl border border-white/5 hover:border-purple-500/30 transition-all group">
-                    <div className="flex items-center gap-3 mb-6">
-                        <div className="w-10 h-10 rounded-xl bg-purple-500/10 flex items-center justify-center group-hover:bg-purple-500 group-hover:text-white transition-all">
-                            <CheckCircle2 size={20} className="text-purple-400 group-hover:text-white" />
-                        </div>
-                        <h2 className="text-sm font-black text-white uppercase tracking-widest">e-Consent</h2>
-                    </div>
-                    <div className="space-y-4">
-                        <div className="flex justify-between items-center text-sm">
-                            <span className="text-slate-400">Templates</span>
-                            <span className="font-bold text-white">12</span>
-                        </div>
-                        <div className="flex justify-between items-center text-sm">
-                            <span className="text-slate-400">Pending Version</span>
-                            <span className="font-bold text-purple-400">3</span>
-                        </div>
-                        <div className="border-t border-white/5 pt-4 flex items-center justify-between">
-                            <span className="text-[13px] font-bold text-slate-500 uppercase tracking-widest">Master Version</span>
-                            <span className="text-lg font-black text-emerald-400">v2.4</span>
-                        </div>
-                    </div>
-                </Link>
-
-                {/* Logistics */}
-                <Link href="/admin/inventory" className="glass p-6 rounded-2xl border border-white/5 hover:border-blue-500/30 transition-all group">
-                    <div className="flex items-center gap-3 mb-6">
-                        <div className="w-10 h-10 rounded-xl bg-blue-500/10 flex items-center justify-center group-hover:bg-blue-500 group-hover:text-white transition-all">
-                            <Truck size={20} className="text-blue-400 group-hover:text-white" />
-                        </div>
-                        <h2 className="text-sm font-black text-white uppercase tracking-widest">Logistics</h2>
-                    </div>
-                    <div className="space-y-4">
-                        <div className="flex justify-between items-center text-sm">
-                            <span className="text-slate-400">Pending Shipment</span>
-                            <span className="font-bold text-white">18</span>
-                        </div>
-                        <div className="flex justify-between items-center text-sm">
-                            <span className="text-slate-400">In Transit</span>
-                            <span className="font-bold text-cyan-400">34</span>
-                        </div>
-                        <div className="flex justify-between items-center text-sm">
-                            <span className="text-slate-400">Overdue Returns</span>
-                            <span className="font-bold text-red-400">3</span>
-                        </div>
-                    </div>
-                </Link>
-
-                {/* Safety */}
-                <Link href="/admin/safety" className="glass p-6 rounded-2xl border border-white/5 hover:border-red-500/30 transition-all group">
-                    <div className="flex items-center gap-3 mb-6">
-                        <div className="w-10 h-10 rounded-xl bg-red-500/10 flex items-center justify-center group-hover:bg-red-500 group-hover:text-white transition-all">
-                            <ShieldAlert size={20} className="text-red-400 group-hover:text-white" />
-                        </div>
-                        <h2 className="text-sm font-black text-white uppercase tracking-widest">Safety</h2>
-                    </div>
-                    <div className="space-y-4">
-                        <div className="flex justify-between items-center text-sm">
-                            <span className="text-slate-400">Open AEs</span>
-                            <span className="font-bold text-amber-400 flex items-center gap-2">4 <span className="w-2 h-2 rounded-full bg-amber-400 animate-pulse" /></span>
-                        </div>
-                        <div className="flex justify-between items-center text-sm">
-                            <span className="text-slate-400">High Severity Alerts</span>
-                            <span className="font-bold text-red-400 flex items-center gap-2">1 <span className="w-2 h-2 rounded-full bg-red-400 animate-pulse" /></span>
-                        </div>
-                    </div>
-                </Link>
-
-                {/* Geographic */}
-                <div className="glass p-6 rounded-2xl border border-white/5">
-                    <div className="flex items-center gap-3 mb-6">
-                        <div className="w-10 h-10 rounded-xl bg-emerald-500/10 flex items-center justify-center">
-                            <Globe size={20} className="text-emerald-400" />
-                        </div>
-                        <h2 className="text-sm font-black text-white uppercase tracking-widest">Geographic</h2>
-                    </div>
-                    <div className="space-y-4">
-                        <div className="flex justify-between items-center text-sm">
-                            <span className="text-slate-400">US Participants</span>
-                            <span className="font-bold text-white">210</span>
-                        </div>
-                        <div className="flex justify-between items-center text-sm">
-                            <span className="text-slate-400">UK Participants</span>
-                            <span className="font-bold text-white">85</span>
-                        </div>
-                        <div className="border-t border-white/5 pt-4">
-                            <span className="text-[13px] text-slate-500 block mb-2">Top Timezone</span>
-                            <span className="text-sm font-bold text-cyan-400 bg-cyan-500/10 px-2 py-1 rounded">EST (UTC-5)</span>
-                        </div>
-                    </div>
-                </div>
-            </div>
-
-            {/* Participant Overview Section - Added as requested */}
-            <div className="glass rounded-2xl border border-white/5 overflow-hidden">
-                <div className="p-6 border-b border-white/5 flex justify-between items-center bg-slate-900/30">
-                    <div>
-                        <h2 className="text-sm font-black text-white uppercase tracking-widest">Recent Participant Activity</h2>
-                        <p className="text-[13px] text-slate-500 mt-1">Live feed of enrollment and adherence data.</p>
-                    </div>
-                    <Link href="/admin/participants" className="text-[13px] font-bold text-cyan-400 hover:text-cyan-300 transition-colors flex items-center gap-1">
-                        View All <ArrowUpRight size={12} />
-                    </Link>
-                </div>
-                <div className="overflow-x-auto">
-                    <table className="w-full text-left whitespace-nowrap min-w-[800px]">
-                        <thead className="bg-slate-900/50 border-b border-white/5">
-                            <tr className="text-[13px] uppercase tracking-widest text-slate-500">
-                                <th className="py-4 px-6 font-bold">Participant ID</th>
-                                <th className="py-4 px-6 font-bold">Protocol</th>
-                                <th className="py-4 px-6 font-bold">Status</th>
-                                <th className="py-4 px-6 font-bold">Enrollment Date</th>
-                                <th className="py-4 px-6 font-bold">Adherence</th>
-                                <th className="py-4 px-6 font-bold text-right">Action</th>
-                            </tr>
-                        </thead>
-                        <tbody className="divide-y divide-white/5 text-sm text-slate-300">
-                            {Array.isArray(recentActivity) && recentActivity.map((p, idx) => (
-                                <tr
-                                    key={idx}
-                                    onClick={() => router.push(`/admin/participants/${p.id}`)}
-                                    className="hover:bg-slate-800/30 transition-colors group cursor-pointer"
-                                >
-                                    <td className="py-4 px-6 font-mono text-cyan-400 font-bold">{p.id?.slice(-6).toUpperCase() || "N/A"}</td>
-                                    <td className="py-4 px-6 font-bold text-white">{p.name || "Anonymous"}</td>
-                                    <td className="py-4 px-6">
-                                        <span className={`px-2 py-1 rounded text-[13px] font-bold uppercase tracking-wide ${p.status === "ACTIVE" || p.status === "ENROLLED" ? "bg-emerald-500/10 text-emerald-400 border border-emerald-500/20" :
-                                            p.status === "WITHDRAWN" ? "bg-red-500/10 text-red-400 border border-red-500/20" :
-                                                "bg-indigo-500/10 text-indigo-400 border border-indigo-500/20"
-                                            }`}>
-                                            {p.status}
-                                        </span>
-                                    </td>
-                                    <td className="py-4 px-6 text-slate-500">{p.consentedAt ? new Date(p.consentedAt).toLocaleDateString() : 'N/A'}</td>
-                                    <td className="py-4 px-6">
-                                        {p.status === "ACTIVE" || p.status === "ENROLLED" ? (
-                                            <div className="flex items-center gap-2">
-                                                <div className="w-16 h-1.5 bg-slate-800 rounded-full overflow-hidden">
-                                                    <div className="h-full rounded-full bg-emerald-500" style={{ width: `92%` }} />
-                                                </div>
-                                                <span className="text-[13px] font-bold text-white">92%</span>
-                                            </div>
-                                        ) : (
-                                            <span className="text-[13px] text-slate-600 italic">N/A</span>
-                                        )}
-                                    </td>
-                                    <td className="py-4 px-6 text-right">
-                                        <button className="text-[13px] uppercase font-bold text-slate-500 hover:text-cyan-400 transition-colors bg-slate-900 border border-slate-800 hover:border-cyan-500/30 px-3 py-1.5 rounded-lg">
-                                            Manage
-                                        </button>
-                                    </td>
-                                </tr>
-                            ))}
-                        </tbody>
-                    </table>
-                </div>
-            </div>
-
-            {/* Studies Overview */}
-            <div className="glass rounded-2xl border border-white/5 overflow-hidden">
-                <div className="p-6 border-b border-white/5 flex justify-between items-center">
-                    <h2 className="text-sm font-black text-white uppercase tracking-widest">Active Studies</h2>
-                    <button className="text-[13px] font-bold text-cyan-400 hover:text-cyan-300 transition-colors">See all</button>
-                </div>
-                <div className="overflow-x-auto">
-                    <table className="w-full text-left whitespace-nowrap min-w-[800px]">
-                        <thead className="bg-slate-900/50 border-b border-white/5">
-                            <tr>
-                                <th className="text-left py-4 px-6 text-[13px] font-black text-slate-500 uppercase tracking-widest">Study Name</th>
-                                <th className="text-left py-4 px-6 text-[13px] font-black text-slate-500 uppercase tracking-widest">Status</th>
-                                <th className="text-left py-4 px-6 text-[13px] font-black text-slate-500 uppercase tracking-widest">Enrollment</th>
-                                <th className="text-left py-4 px-6 text-[13px] font-black text-slate-500 uppercase tracking-widest">Indication</th>
-                                <th className="text-right py-4 px-6 text-[13px] font-black text-slate-500 uppercase tracking-widest">Actions</th>
-                            </tr>
-                        </thead>
-                        <tbody className="divide-y divide-white/5">
-                            {Array.isArray(activeStudies) && activeStudies.map((study, i) => (
-                                <tr key={i} className="hover:bg-white/5 transition-colors cursor-pointer group">
-                                    <td className="py-4 px-6">
-                                        <p className="text-sm font-bold text-white group-hover:text-cyan-400 transition-colors">{study.title}</p>
-                                    </td>
-                                    <td className="py-4 px-6">
-                                        <span className={`text-[13px] font-black px-1.5 py-0.5 rounded ${study.status === 'ACTIVE' || study.status === 'RECRUITING' ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20' : 'bg-cyan-500/10 text-cyan-400 border border-cyan-500/20'
-                                            }`}>
-                                            {study.status}
-                                        </span>
-                                    </td>
-                                    <td className="py-4 px-6">
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            {[
+                                { label: "Upcoming Visits this Week", value: "24", icon: Calendar, color: "text-emerald-400", desc: "12 In-person, 12 Virtual" },
+                                { label: "Overdue Follow-ups", value: "3", icon: Clock, color: "text-red-400", desc: "Require immediate contact" },
+                                { label: "Participants Needing Callback", value: "7", icon: Users, color: "text-amber-400", desc: "Lead follow-ups pending" },
+                                { label: "Pending Form Completions", value: "42", icon: FileText, color: "text-blue-400", desc: "Awaiting participant input" },
+                                { label: "Pending Sample Shipments", value: "11", icon: Truck, color: "text-pink-400", desc: "Outbound logistics queue" },
+                                { label: "Sample Receipt Confirmations", value: "19", icon: Package, color: "text-orange-400", desc: "Awaiting lab check-in" },
+                            ].map((w, i) => (
+                                <div key={i} className="p-4 bg-slate-950/40 rounded-2xl border border-white/5 flex items-start gap-4 hover:border-white/10 transition-all">
+                                    <div className={`p-3 rounded-xl bg-slate-900 ${w.color}`}><w.icon size={20} /></div>
+                                    <div>
                                         <div className="flex items-center gap-2">
-                                            <div className="w-24 h-1.5 bg-slate-800 rounded-full overflow-hidden">
-                                                <div className="h-full bg-cyan-500" style={{ width: '45%' }} />
-                                            </div>
-                                            <span className="text-[13px] font-bold text-slate-300">45%</span>
+                                            <span className="text-2xl font-black text-white">{w.value}</span>
+                                            <span className="text-[10px] font-black text-slate-500 uppercase tracking-widest">{w.label}</span>
                                         </div>
-                                    </td>
-                                    <td className="py-4 px-6 text-sm text-slate-400">{study.condition}</td>
-                                    <td className="py-4 px-6 text-right">
-                                        <button className="p-2 text-slate-500 hover:text-white transition-colors">
-                                            <ChevronRight size={18} />
-                                        </button>
-                                    </td>
-                                </tr>
+                                        <p className="text-[11px] text-slate-600 font-bold mt-1">{w.desc}</p>
+                                    </div>
+                                </div>
                             ))}
-                        </tbody>
-                    </table>
+                        </div>
+                    </div>
+
+                    {/* Recruitment Funnel */}
+                    <div className="glass rounded-[2.5rem] border border-white/5 p-8">
+                        <div className="flex justify-between items-center mb-8">
+                            <h2 className="text-lg font-black text-white uppercase tracking-wider italic">Enrollment Funnel</h2>
+                            <div className="flex gap-2">
+                                <button className="px-3 py-1 bg-slate-900 border border-white/5 rounded-lg text-[10px] font-black text-slate-400 uppercase tracking-widest">Weekly</button>
+                                <button className="px-3 py-1 bg-cyan-500/10 border border-cyan-500/20 rounded-lg text-[10px] font-black text-cyan-400 uppercase tracking-widest">Monthly</button>
+                            </div>
+                        </div>
+                        <div className="space-y-6">
+                            {Array.isArray(funnelData) && funnelData.map((step, i) => (
+                                <div key={i} className="space-y-2 group">
+                                    <div className="flex justify-between text-[11px] font-black uppercase tracking-widest text-slate-400">
+                                        <span>{step.label}</span>
+                                        <span className="text-white">{step.value}</span>
+                                    </div>
+                                    <div className="h-2 w-full bg-slate-800 rounded-full overflow-hidden">
+                                        <div 
+                                            className={`h-full ${step.color} transition-all duration-1000 group-hover:brightness-110`} 
+                                            style={{ width: step.width }} 
+                                        />
+                                    </div>
+                                </div>
+                            ))}
+                        </div>
+                    </div>
+                </div>
+
+                {/* Alerts & Notifications (Spec 4.3) */}
+                <div className="lg:col-span-4 space-y-6">
+                    <div className="glass rounded-2xl border border-white/5 p-6 bg-slate-900/20">
+                        <h3 className="text-sm font-black text-white uppercase tracking-widest mb-6 flex items-center gap-2 italic">
+                            <AlertCircle size={16} className="text-amber-500" /> Study Alerts
+                        </h3>
+                        <div className="space-y-4">
+                            {[
+                                { title: "Supply Alert: London Site", desc: "Bio-markers stock below 10%", type: "inventory" },
+                                { title: "Safety Alert: P-102", desc: "Unscheduled AE reported", type: "safety" },
+                                { title: "Target Milestone", desc: "LIDORE reaching 90% enrollment", type: "ops" },
+                            ].map((alert, i) => (
+                                <div key={i} className="p-4 rounded-xl border border-white/5 bg-slate-900/40 hover:bg-slate-800/50 transition-all cursor-pointer">
+                                    <div className="flex justify-between items-start mb-1">
+                                        <span className="text-[12px] font-black text-white italic">{alert.title}</span>
+                                    </div>
+                                    <p className="text-[11px] text-slate-500 font-medium">{alert.desc}</p>
+                                </div>
+                            ))}
+                        </div>
+                    </div>
+
+                    <div className="glass rounded-2xl border border-white/5 p-6">
+                        <h3 className="text-sm font-black text-white uppercase tracking-widest mb-6 flex items-center gap-2 italic">
+                            <ArrowUpRight size={16} className="text-cyan-400" /> Recent Activity
+                        </h3>
+                        <div className="space-y-4">
+                            {recentActivity.slice(0, 4).map((p, i) => (
+                                <div key={i} className="flex items-center gap-4 group cursor-pointer">
+                                    <div className="w-10 h-10 rounded-full bg-slate-800 border border-white/5 flex items-center justify-center text-xs font-black text-slate-400 group-hover:border-cyan-500/30 transition-all">
+                                        {p.name?.[0] || 'P'}
+                                    </div>
+                                    <div className="flex-1 min-w-0">
+                                        <p className="text-[13px] font-bold text-white truncate">{p.name || 'Anonymous'}</p>
+                                        <p className="text-[10px] text-slate-500 font-black uppercase tracking-widest">{p.status}</p>
+                                    </div>
+                                    <ChevronRight size={14} className="text-slate-700 group-hover:text-cyan-500 transition-colors" />
+                                </div>
+                            ))}
+                        </div>
+                    </div>
                 </div>
             </div>
         </div>
     );
 }
+

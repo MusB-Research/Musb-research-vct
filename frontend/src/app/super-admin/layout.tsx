@@ -120,11 +120,11 @@ export default function SuperAdminLayout({ children }: { children: React.ReactNo
 
                 {/* Logo */}
                 <div className="p-5 border-b flex items-center justify-between" style={{ borderColor: "rgba(139,92,246,0.15)" }}>
-                    <Link href="/super-admin" className="flex items-center">
-                        <div className="bg-white px-4 py-2 rounded-full shadow-lg shadow-violet-500/20 group hover:scale-[1.02] transition-transform">
+                    <a href="https://www.musbhealth.com/" target="_blank" rel="noopener noreferrer" className="flex items-center group">
+                        <div className="bg-white px-4 py-2 rounded-full shadow-lg shadow-violet-500/20 group-hover:scale-[1.02] transition-transform">
                             <img src="/musb research.png" alt="MUSB Research" className="h-[24px] w-auto object-contain" />
                         </div>
-                    </Link>
+                    </a>
                     <button onClick={() => setIsSidebarOpen(false)} className="lg:hidden p-2 text-slate-500 hover:text-white transition-colors">
                         <X size={20} />
                     </button>

@@ -181,8 +181,8 @@ async def launch_study(
     db=Depends(get_db)
 ):
     """Sponsor: create or launch a new study."""
-    if current_user.role not in ("SPONSOR", "SPONSOR_ADMIN", "ADMIN"):
-        raise HTTPException(status_code=403, detail="Only sponsors or admins can launch studies")
+    if current_user.role not in ("SPONSOR", "SPONSOR_ADMIN", "ADMIN", "COORDINATOR"):
+        raise HTTPException(status_code=403, detail="Only sponsors, coordinators, or admins can launch studies")
 
     # Generate slug from title if it looks like a placeholder
     slug = study_in.slug
@@ -737,4 +737,76 @@ async def deactivate_team_member(
     )
 
     return {"message": "Team member successfully deactivated"}
+
+
+@router.get("/participants", response_model=List[dict])
+async def list_deidentified_participants(
+    study_id: Optional[str] = Query(None),
+    current_user=Depends(get_current_user),
+    db=Depends(get_db)
+):
+    """Sponsor: List de-identified participant data for their studies."""
+    if current_user.role not in ("SPONSOR", "SPONSOR_ADMIN", "STUDY_MANAGER", "VIEWER", "ADMIN"):
+        raise HTTPException(status_code=403, detail="Insufficient permissions")
+
+    # Determine allowed study IDs
+    sponsor_id = getattr(current_user, "parent_sponsor_id", None) or current_user.user_id
+    allowed_study_ids = set()
+    
+    study_query = {}
+    if current_user.role in ("SPONSOR", "SPONSOR_ADMIN"):
+        study_query["sponsorId"] = sponsor_id
+    elif current_user.role in ("STUDY_MANAGER", "VIEWER"):
+        user = await db["users"].find_one({"_id": ObjectId(current_user.user_id)})
+        assigned_studies = user.get("assignedStudies", [])
+        study_query["_id"] = {"$in": [ObjectId(sid) for sid in assigned_studies if ObjectId.is_valid(sid)]}
+    
+    async for s in db["studies"].find(study_query, {"_id": 1}):
+        allowed_study_ids.add(str(s["_id"]))
+    async for s in db["api_study"].find(study_query, {"_id": 1}):
+        allowed_study_ids.add(str(s["_id"]))
+
+    if study_id:
+        if study_id not in allowed_study_ids:
+            raise HTTPException(status_code=403, detail="Access denied to this study")
+        participant_query = {"studyId": study_id}
+    else:
+        participant_query = {"studyId": {"$in": list(allowed_study_ids)}}
+
+    participants = []
+    async for p in db["participants"].find(participant_query).sort("createdAt", -1).limit(200):
+        # Scrub PII
+        p_id_str = str(p["_id"])
+        anon_id = f"P-{p_id_str[:4].upper()}-{p_id_str[-4:].upper()}"
+        
+        # Calculate progress
+        completed = await db["taskInstances"].count_documents({"participantId": p_id_str, "status": "COMPLETED"})
+        total = await db["taskInstances"].count_documents({"participantId": p_id_str})
+        progress = int((completed / max(total, 1) * 100) if total > 0 else 0)
+
+        # Get ARM name
+        arm_name = "Not Assigned"
+        arm_id = p.get("armId")
+        if arm_id:
+            # Need to find study to get arm name
+            p_study_id = p.get("studyId")
+            if p_study_id:
+                p_study = await db["studies"].find_one({"_id": ObjectId(p_study_id)}) or await db["api_study"].find_one({"_id": ObjectId(p_study_id)})
+                if p_study and "arms" in p_study:
+                    for arm in p_study["arms"]:
+                        if str(arm.get("id")) == str(arm_id):
+                            arm_name = arm.get("name")
+                            break
+
+        participants.append({
+            "id": anon_id,
+            "status": p.get("status", "LEAD"),
+            "progress": progress,
+            "arm": arm_name,
+            "createdAt": p.get("createdAt"),
+            "lastVisit": p.get("updatedAt").strftime("%b %d, %Y") if p.get("updatedAt") else "N/A",
+            # demographics are intentionally excluded/masked for sponsor de-identification
+        })
+    
+    return participants
 

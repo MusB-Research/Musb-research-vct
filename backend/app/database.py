@@ -30,16 +30,33 @@ async def initialize_indexes():
 async def connect_db():
     """Create database connection on startup."""
     global client, db
+    
+    # Check for empty URL
+    if not settings.DATABASE_URL:
+        logger.error("DATABASE_URL is not set!")
+        return
+
     # Configure pool size for multiple modules sharing the DB
+    # We add a shorter serverSelectionTimeoutMS for faster failure feedback
     client = AsyncIOMotorClient(
         settings.DATABASE_URL,
         maxPoolSize=100,
         minPoolSize=10,
-        retryWrites=True
+        retryWrites=True,
+        serverSelectionTimeoutMS=5000  # Fail faster if unreachable (5s)
     )
     db = client[settings.DATABASE_NAME]
-    logger.info(f"Connected to MongoDB: {settings.DATABASE_NAME} (Shared Cluster)")
-    await initialize_indexes()
+    
+    try:
+        # Actually verify connection now instead of waiting for first request
+        await db.command("ping")
+        logger.info(f"Connected to MongoDB: {settings.DATABASE_NAME} (Shared Cluster)")
+        await initialize_indexes()
+    except Exception as e:
+        logger.critical(f"DATABASE CONNECTION FAILED: {str(e)}")
+        # In development, we might want to continue, but in production this should crash.
+        if settings.ENV == "production":
+            raise e
 
 
 async def close_db():

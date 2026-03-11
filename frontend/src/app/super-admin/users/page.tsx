@@ -1,6 +1,7 @@
 "use client";
 
-import { useEffect, useState, useCallback } from "react";
+import { useEffect, useState, useCallback, useMemo } from "react";
+import { useSearchParams } from "next/navigation";
 import {
     Users, Plus, Trash2, Edit2, Search, Filter, X,
     ShieldCheck, Crown, UserCircle, AlertCircle, CheckCircle2, RefreshCw
@@ -178,17 +179,23 @@ function EditRoleModal({ user, onClose, onSaved, token }: {
 
 // ─── Main Page ─────────────────────────────────────────────────────────────────
 export default function SuperAdminUsersPage() {
+    const searchParams = useSearchParams();
+    
     const [users, setUsers] = useState<any[]>([]);
     const [total, setTotal] = useState(0);
     const [loading, setLoading] = useState(true);
     const [search, setSearch] = useState("");
-    // Pre-populate role filter from URL ?role= param (e.g. from Admins & Staff card)
-    const [roleFilter, setRoleFilter] = useState(() => {
-        if (typeof window !== "undefined") {
-            return new URLSearchParams(window.location.search).get("role") || "";
-        }
-        return "";
-    });
+    
+    // Sync filter states with URL search params (Ref: Issue #204)
+    const [roleFilter, setRoleFilter] = useState(() => searchParams.get("role") || "");
+    const [groupFilter, setGroupFilter] = useState(() => searchParams.get("group") || "");
+
+    // Still need useEffect to react to navigation while the component is mounted
+    useEffect(() => {
+        setRoleFilter(searchParams.get("role") || "");
+        setGroupFilter(searchParams.get("group") || "");
+    }, [searchParams]);
+
     const [showCreate, setShowCreate] = useState(false);
     const [editUser, setEditUser] = useState<any | null>(null);
     const [deleting, setDeleting] = useState<string | null>(null);
@@ -207,6 +214,7 @@ export default function SuperAdminUsersPage() {
         try {
             const params = new URLSearchParams({ limit: "100" });
             if (roleFilter) params.set("role", roleFilter);
+            if (groupFilter) params.set("group", groupFilter);
             if (search) params.set("search", search);
             const res = await fetch(`${apiUrl}/api/super-admin/users?${params}`, {
                 headers: { Authorization: `Bearer ${token}` },
@@ -219,7 +227,7 @@ export default function SuperAdminUsersPage() {
         } finally {
             setLoading(false);
         }
-    }, [token, roleFilter, search, apiUrl]);
+    }, [token, roleFilter, groupFilter, search, apiUrl]);
 
     useEffect(() => { fetchUsers(); }, [fetchUsers]);
 
@@ -307,14 +315,36 @@ export default function SuperAdminUsersPage() {
                         className="w-full bg-slate-900/60 border border-slate-800 rounded-xl py-2.5 pl-9 pr-4 text-sm text-slate-200 focus:outline-none focus:border-violet-500/30 transition-all"
                     />
                 </div>
+                
+                {/* Group Filter */}
+                <select
+                    value={groupFilter}
+                    onChange={(e) => { setGroupFilter(e.target.value); setRoleFilter(""); }}
+                    className="bg-slate-900/60 border border-slate-800 rounded-xl py-2.5 px-4 text-sm text-slate-300 focus:outline-none focus:border-violet-500/30 transition-all font-bold"
+                >
+                    <option value="">All Groups</option>
+                    <option value="staff">Admins & Staff</option>
+                    <option value="participant">Participants</option>
+                    <option value="sponsor">Sponsors & Teams</option>
+                </select>
+
                 <select
                     value={roleFilter}
-                    onChange={(e) => setRoleFilter(e.target.value)}
+                    onChange={(e) => { setRoleFilter(e.target.value); setGroupFilter(""); }}
                     className="bg-slate-900/60 border border-slate-800 rounded-xl py-2.5 px-4 text-sm text-slate-300 focus:outline-none focus:border-violet-500/30 transition-all"
                 >
-                    <option value="">All Roles</option>
+                    <option value="">Specific Role (Off)</option>
                     {ALL_ROLES.map(r => <option key={r} value={r}>{r}</option>)}
                 </select>
+                
+                {(roleFilter || groupFilter || search) && (
+                    <button 
+                        onClick={() => { setRoleFilter(""); setGroupFilter(""); setSearch(""); }}
+                        className="text-[11px] font-black text-violet-400 hover:text-white uppercase tracking-widest flex items-center gap-1.5 px-2"
+                    >
+                        <X size={12} /> Clear Filters
+                    </button>
+                )}
             </div>
 
             {/* Table */}

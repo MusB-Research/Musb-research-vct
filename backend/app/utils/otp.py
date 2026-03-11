@@ -14,12 +14,14 @@ def generate_otp(identifier: str, purpose: str = "LOGIN", length: int = 8) -> st
     expiry = datetime.now(timezone.utc) + timedelta(minutes=10)
     
     # Store with purpose to ensure valid action context
-    otp_store[f"{identifier}|{purpose}"] = {"code": otp, "expires_at": expiry}
+    clean_id = identifier.lower().strip()
+    otp_store[f"{clean_id}|{purpose}"] = {"code": otp, "expires_at": expiry}
     return otp
 
 def verify_otp(identifier: str, code: str, purpose: str = "LOGIN") -> bool:
     """Verify an OTP for a given identifier and purpose."""
-    key = f"{identifier}|{purpose}"
+    clean_id = identifier.lower().strip()
+    key = f"{clean_id}|{purpose}"
     data = otp_store.get(key)
     
     if not data:

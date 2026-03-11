@@ -139,6 +139,7 @@ async def login(request: Request, form_data: OAuth2PasswordRequestForm = Depends
     
     # Step 2: Handle "User Not Found" fast
     if not user:
+        print(f"DEBUG: Login failed - User not found: {email}") # Added for debugging
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Invalid email or password",
@@ -148,6 +149,7 @@ async def login(request: Request, form_data: OAuth2PasswordRequestForm = Depends
     # Step 3: Password Work (Costly)
     password_hash = user.get("passwordHash")
     if not password_hash or not verify_password(form_data.password, password_hash):
+        print(f"DEBUG: Login failed - Password mismatch for: {email}") # Added for debugging
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Invalid email or password",
@@ -312,7 +314,8 @@ async def send_verification(request: Request, body: VerificationRequest, backgro
     await rate_limit_check(request, "/api/auth/verify/send")
 
     # Check user existence based on action purpose
-    user = await db["users"].find_one({"email": body.identifier})
+    email = body.identifier.lower().strip()
+    user = await db["users"].find_one({"email": email})
 
     if body.purpose == "LOGIN":
         if not user:
@@ -370,7 +373,8 @@ async def check_verification(request: Request, body: VerificationCheck, db=Depen
     # Bug fix: only update emailVerified for LOGIN/RESET purposes.
     # For REGISTER, the user doesn't exist yet at verify/check time.
     if body.purpose in ("LOGIN", "RESET"):
-        user = await db["users"].find_one({"email": body.identifier})
+        email = body.identifier.lower().strip()
+        user = await db["users"].find_one({"email": email})
         if user:
             await db["users"].update_one(
                 {"_id": user["_id"]},

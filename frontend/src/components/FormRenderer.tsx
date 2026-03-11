@@ -78,10 +78,16 @@ export default function FormRenderer({ assessment, studyId, onSuccess }: FormRen
     }
 
     return (
-        <form onSubmit={handleSubmit} className="space-y-8">
-            <div>
-                <h2 className="text-2xl font-black text-white italic tracking-tight">{assessment.title}</h2>
-                {assessment.description && <p className="text-slate-500 text-sm mt-1">{assessment.description}</p>}
+        <form onSubmit={handleSubmit} className="space-y-8 relative">
+            <div className="flex flex-col md:flex-row md:items-center justify-between gap-6 pb-6 border-b border-white/5">
+                <div>
+                    <h2 className="text-2xl font-black text-white italic tracking-tight">{assessment.title}</h2>
+                    {assessment.description && <p className="text-slate-500 text-sm mt-1">{assessment.description}</p>}
+                </div>
+                {/* Spec 17.2 MusB Logo automatically on all forms */}
+                <div className="shrink-0 bg-white/5 p-3 rounded-2xl border border-white/10">
+                    <img src="/musb research.png" alt="MusB Research" className="h-10 w-auto opacity-80 group-hover:opacity-100 transition-opacity" />
+                </div>
             </div>
 
             <div className="space-y-6">

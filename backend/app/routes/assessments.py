@@ -53,10 +53,13 @@ async def list_assessments(db=Depends(get_db)):
 @router.post("", response_model=AssessmentOut, status_code=status.HTTP_201_CREATED)
 async def create_assessment(
     assessment_in: AssessmentCreate,
-    current_user=Depends(require_admin),
+    current_user=Depends(get_current_user),
     db=Depends(get_db)
 ):
-    """Admin: Create a new assessment template."""
+    """Admin/PI: Create a new assessment template."""
+    if current_user.role not in ("ADMIN", "SUPER_ADMIN", "PI"):
+        raise HTTPException(status_code=403, detail="Insufficient permissions")
+    
     doc = assessment_in.model_dump()
     doc["createdAt"] = datetime.now(timezone.utc)
     result = await db["assessments"].insert_one(doc)

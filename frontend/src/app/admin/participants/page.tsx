@@ -11,7 +11,8 @@ import {
     Calendar,
     AlertCircle,
     CheckCircle2,
-    Clock
+    Clock,
+    UserPlus
 } from "lucide-react";
 import { useState, useEffect } from "react";
 import Link from "next/link";
@@ -87,6 +88,9 @@ export default function ParticipantsPage() {
                     <p className="text-slate-500 mt-2 font-medium">Monitoring enrolled subjects and screening leads across global sites.</p>
                 </div>
                 <div className="flex gap-4">
+                    <Link href="/admin/participants/new" className="px-6 py-3 bg-cyan-600 hover:bg-cyan-500 text-white font-black uppercase tracking-widest text-[12px] rounded-xl shadow-lg shadow-cyan-600/20 transition-all flex items-center gap-2">
+                        <UserPlus size={16} /> Register Participant
+                    </Link>
                     <div className="text-right">
                         <div className="text-[13px] font-black text-slate-500 uppercase tracking-widest italic mb-1">Total Records</div>
                         <div className="text-2xl font-black text-white italic">{participants.length}</div>
@@ -118,72 +122,67 @@ export default function ParticipantsPage() {
             ) : (
                 /* Table */
                 <div className="glass rounded-[2rem] border border-white/5 overflow-hidden shadow-2xl overflow-x-auto relative mb-24">
-                    <table className="w-full text-left whitespace-nowrap min-w-[800px]">
-                        <thead className="bg-slate-900/80 border-b border-white/5">
-                            <tr>
-                                <th className="py-5 px-8 text-left w-10">
-                                    <input
-                                        type="checkbox"
-                                        className="w-4 h-4 rounded-md accent-cyan-500 bg-slate-800 border-white/10"
-                                        checked={selectedIds.length === filteredParticipants.length && filteredParticipants.length > 0}
-                                        onChange={toggleSelectAll}
-                                    />
-                                </th>
-                                <th className="text-left py-5 px-4 text-[13px] font-black text-slate-500 uppercase tracking-widest italic">Subject / ID</th>
-                                <th className="text-left py-5 px-8 text-[13px] font-black text-slate-500 uppercase tracking-widest italic">Status</th>
-                                <th className="text-left py-5 px-8 text-[13px] font-black text-slate-500 uppercase tracking-widest italic">Study assignment</th>
-                                <th className="text-left py-5 px-8 text-[13px] font-black text-slate-500 uppercase tracking-widest italic">Compliance</th>
-                                <th className="text-left py-5 px-8 text-[13px] font-black text-slate-500 uppercase tracking-widest italic">Last Interaction</th>
-                                <th className="text-right py-5 px-8 text-[13px] font-black text-slate-500 uppercase tracking-widest italic">Action</th>
+                    <table className="w-full text-left whitespace-nowrap min-w-[1000px]">
+                        <thead className="bg-[#0a1120]/60 border-b border-white/5">
+                            <tr className="text-[11px] uppercase tracking-widest text-slate-500 font-black italic">
+                                <th className="py-5 px-6 italic">Patient ID</th>
+                                <th className="py-5 px-6 italic">Patient Name</th>
+                                <th className="py-5 px-6 italic">Assigned Study & Arm</th>
+                                <th className="py-5 px-6 italic">Stage</th>
+                                <th className="py-5 px-6 italic">Enrollment Date</th>
+                                <th className="py-5 px-6 italic">Last Activity</th>
+                                <th className="py-5 px-6 italic">Status</th>
+                                <th className="py-5 px-6 text-right italic">Actions</th>
                             </tr>
                         </thead>
-                        <tbody className="divide-y divide-white/5">
+                        <tbody className="divide-y divide-white/5 text-[13px] text-slate-300">
                             {filteredParticipants.map((p) => (
-                                <tr
-                                    key={p.id}
-                                    onClick={() => router.push(`/admin/participants/${p.id}`)}
-                                    className={`hover:bg-cyan-500/[0.02] transition-colors cursor-pointer group ${selectedIds.includes(p.id) ? 'bg-cyan-500/5' : ''}`}
-                                >
-                                    <td className="py-5 px-8">
-                                        <input
-                                            type="checkbox"
-                                            className="w-4 h-4 rounded-md accent-cyan-500 bg-slate-800 border-white/10"
-                                            checked={selectedIds.includes(p.id)}
-                                            onClick={(e) => toggleSelect(p.id, e)}
-                                        />
-                                    </td>
-                                    <td className="py-5 px-4">
-                                        <div className="flex items-center gap-4">
-                                            <div className="w-10 h-10 rounded-xl bg-slate-800 flex items-center justify-center text-slate-500 group-hover:text-cyan-400 group-hover:bg-cyan-500/10 transition-all border border-white/5">
-                                                <User size={20} />
-                                            </div>
-                                            <div>
-                                                <p className="text-sm font-black text-white group-hover:text-cyan-400 transition-colors leading-none italic">{p.name || "Anonymous Patient"}</p>
-                                                <p className="text-[13px] font-bold text-slate-500 mt-2 tracking-tighter uppercase">{p.id.slice(-12).toUpperCase()} • {p.email}</p>
-                                            </div>
+                                <tr key={p.id} className="hover:bg-white/[0.02] transition-colors group">
+                                    <td className="py-5 px-6 font-mono text-cyan-500/80 font-bold uppercase">{p.id.slice(-8).toUpperCase()}</td>
+                                    <td className="py-5 px-6">
+                                        <div className="flex flex-col">
+                                            <span className="font-bold text-white group-hover:text-cyan-400 transition-colors uppercase italic">{p.name || "Anonymous"}</span>
+                                            <span className="text-[10px] text-slate-500 font-black uppercase tracking-widest mt-0.5">{p.email}</span>
                                         </div>
                                     </td>
-                                    <td className="py-5 px-8">
-                                        <span className={`text-[13px] font-black px-3 py-1 rounded-lg border italic tracking-widest ${statusStyles[p.status] || statusStyles['LEAD']}`}>
+                                    <td className="py-5 px-6">
+                                        <div className="flex flex-col">
+                                            <span className="font-bold text-slate-300 italic">{p.studyTitle || "Unassigned"}</span>
+                                            <span className="text-[10px] text-slate-500 font-black uppercase tracking-widest">{p.arm || "No Arm Assigned"}</span>
+                                        </div>
+                                    </td>
+                                    <td className="py-5 px-6 font-bold text-slate-400 uppercase italic tracking-tight">{p.stage || "Screening"}</td>
+                                    <td className="py-5 px-6 font-bold text-slate-500 uppercase italic">{p.enrolledAt || p.createdAt?.split('T')[0] || "N/A"}</td>
+                                    <td className="py-5 px-6">
+                                        <div className="flex items-center gap-2">
+                                            <Clock size={12} className="text-slate-600" />
+                                            <span className="text-slate-500 font-bold italic">{p.lastActivity || "Today"}</span>
+                                        </div>
+                                    </td>
+                                    <td className="py-5 px-6">
+                                        <span className={`px-2 py-0.5 rounded text-[10px] font-black uppercase tracking-widest border ${statusStyles[p.status] || statusStyles['LEAD']}`}>
                                             {p.status}
                                         </span>
                                     </td>
-                                    <td className="py-5 px-8 text-[13px] font-bold text-slate-300 italic">{p.studyTitle || p.studyId || "Unenrolled Lead"}</td>
-                                    <td className="py-5 px-8">
-                                        <div className="flex items-center gap-3">
-                                            <div className="w-16 h-1.5 bg-slate-800 rounded-full overflow-hidden">
-                                                <div className="h-full bg-cyan-500 rounded-full" style={{ width: '92%' }} />
+                                    <td className="py-5 px-6 text-right">
+                                        <div className="flex items-center justify-end gap-2">
+                                            <Link href={`/admin/participants/${p.id}`} className="p-2 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-lg border border-white/5 transition-all">
+                                                <User size={14} />
+                                            </Link>
+                                            <div className="relative group/actions">
+                                                <button className="p-2 hover:bg-white/5 text-slate-500 rounded-lg transition-all">
+                                                    <MoreVertical size={16} />
+                                                </button>
+                                                <div className="absolute right-0 top-full mt-1 hidden group-hover/actions:block w-48 bg-[#0a1120] border border-white/10 rounded-xl shadow-2xl z-50 py-1">
+                                                    <button className="w-full text-left px-4 py-2 hover:bg-white/5 text-[10px] font-black uppercase tracking-widest text-slate-300">Message Patient</button>
+                                                    <button className="w-full text-left px-4 py-2 hover:bg-white/5 text-[10px] font-black uppercase tracking-widest text-slate-300">Log Visit</button>
+                                                    <button className="w-full text-left px-4 py-2 hover:bg-white/5 text-[10px] font-black uppercase tracking-widest text-slate-300">Dispense Kit</button>
+                                                    <button className="w-full text-left px-4 py-2 hover:bg-white/5 text-[10px] font-black uppercase tracking-widest text-slate-300">Update Status</button>
+                                                    <div className="h-px bg-white/5 my-1" />
+                                                    <button className="w-full text-left px-4 py-2 hover:bg-white/5 text-[10px] font-black uppercase tracking-widest text-red-400/80">Mark Dropped</button>
+                                                </div>
                                             </div>
-                                            <span className={`text-[13px] font-black ${p.status === 'ENROLLED' || p.status === 'ACTIVE' ? 'text-emerald-400' : 'text-slate-700 italic'}`}>
-                                                {p.status === 'ENROLLED' || p.status === 'ACTIVE' ? '92%' : 'N/A'}
-                                            </span>
                                         </div>
-                                    </td>
-                                    <td className="py-5 px-8 text-[13px] font-bold text-slate-500 italic uppercase">{p.consentedAt ? "T-04h Active" : "New Lead"}</td>
-                                    <td className="py-5 px-8 text-right">
-                                        <button className="p-2 text-slate-500 hover:text-white transition-colors bg-slate-800/50 rounded-lg">
-                                            <ChevronRight size={18} />
-                                        </button>
                                     </td>
                                 </tr>
                             ))}

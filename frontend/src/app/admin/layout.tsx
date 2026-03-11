@@ -5,8 +5,12 @@ import { usePathname, useRouter } from "next/navigation";
 import { signOut } from "next-auth/react";
 import Link from "next/link";
 import {
-    LayoutDashboard, Briefcase, Users, Calendar, Package, Database,
+    LayoutDashboard,
+    Smartphone,
+    LayoutGrid,
+    Briefcase, Users, Calendar, Package, Database,
     ShieldAlert, FileText, Settings, Search, Bell, UserCircle, LogOut, BarChart, Users2,
+    Zap, FileSignature, Activity, Binary, FlaskConical, MessageSquare, Plus, Mail, PlusCircle, ChevronDown
 } from "lucide-react";
 import { AdminAuth, type PortalUser } from "@/lib/portal-auth";
 import NotificationBell from "@/components/NotificationBell";
@@ -15,16 +19,23 @@ import { useRef } from "react";
 
 const navItems = [
     { name: "Dashboard", href: "/admin", icon: LayoutDashboard },
-    { name: "Studies", href: "/admin/studies", icon: Briefcase },
+    { name: "My Studies", href: "/admin/studies", icon: Briefcase },
+    { name: "Study Setup", href: "/admin/studies/new", icon: Settings },
+    { name: "Recruitment", href: "/admin/recruitment", icon: Zap },
+    { name: "Participant Leads", href: "/admin/leads", icon: Search },
     { name: "Participants", href: "/admin/participants", icon: Users },
     { name: "Scheduling", href: "/admin/scheduling", icon: Calendar },
-    { name: "Kits & Inventory", href: "/admin/inventory", icon: Package },
-    { name: "Data & Exports", href: "/admin/data", icon: Database },
-    { name: "Safety (AE/SAE)", href: "/admin/safety", icon: ShieldAlert },
-    { name: "Documents (eTMF-lite)", href: "/admin/documents", icon: FileText },
-    { name: "Reports (Sponsor/Claims)", href: "/admin/reports", icon: BarChart },
-    { name: "Team & Roles", href: "/admin/team", icon: Users2 },
-    { name: "Settings / Integrations", href: "/admin/settings", icon: Settings },
+    { name: "Consent", href: "/admin/consent", icon: FileSignature },
+    { name: "Forms & Questionnaires", href: "/admin/forms", icon: FileText },
+    { name: "Visits & Assessments", href: "/admin/visits", icon: Activity },
+    { name: "Intervention / Arm Assignment", href: "/admin/interventions", icon: Binary },
+    { name: "Kits & Samples", href: "/admin/inventory", icon: Package },
+    { name: "Labs & Results", href: "/admin/labs", icon: FlaskConical },
+    { name: "Compensation", href: "/admin/compensation", icon: BarChart },
+    { name: "Communication Log", href: "/admin/messages", icon: MessageSquare },
+    { name: "Reports & Analytics", href: "/admin/reports", icon: BarChart },
+    { name: "Documents", href: "/admin/documents", icon: FileText },
+    { name: "Audit Log", href: "/admin/audit", icon: ShieldAlert },
 ];
 
 const ADMIN_ROLES = new Set(["ADMIN", "COORDINATOR", "PI", "DATA_MANAGER"]);
@@ -153,7 +164,15 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
                         <button onClick={() => setIsSidebarOpen(true)} className="lg:hidden p-2 text-slate-400 hover:text-white hover:bg-white/5 rounded-xl transition-all">
                             <Menu size={20} />
                         </button>
-                        <div className="hidden sm:flex-1 sm:max-w-md lg:max-w-xl">
+                        
+                        {/* Study Switcher (Spec 4.2) */}
+                        <div className="hidden xl:flex items-center gap-2 bg-white/5 border border-white/10 px-3 py-1.5 rounded-xl group hover:border-cyan-500/30 transition-all cursor-pointer">
+                            <div className="w-2 h-2 rounded-full bg-emerald-500" />
+                            <span className="text-[11px] font-black text-slate-300 uppercase tracking-widest truncate max-w-[150px]">LIDORE Protocol X</span>
+                            <ChevronDown size={14} className="text-slate-500" />
+                        </div>
+
+                        <div className="hidden sm:flex-1 sm:max-w-md lg:max-w-lg">
                             <div className="relative group">
                                 <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-500 group-focus-within:text-cyan-400 transition-colors" size={16} />
                                 <input type="text" placeholder="Search protocol data..."
@@ -196,6 +215,19 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
                                 </div>
                             )}
                         </div>
+
+                        <div className="hidden md:flex items-center gap-2">
+                            <button className="p-2.5 text-slate-500 hover:text-white bg-white/5 rounded-xl border border-white/10 hover:border-cyan-500/30 transition-all">
+                                <MessageSquare size={18} />
+                            </button>
+                            <button className="p-2.5 text-slate-500 hover:text-white bg-white/5 rounded-xl border border-white/10 hover:border-cyan-500/30 transition-all">
+                                <Calendar size={18} />
+                            </button>
+                        </div>
+
+                        <button className="hidden lg:flex items-center gap-2 px-4 py-2 bg-cyan-600 hover:bg-cyan-500 text-white text-[11px] font-black uppercase tracking-widest rounded-xl shadow-lg shadow-cyan-600/20 transition-all">
+                            <PlusCircle size={16} /> Quick Add
+                        </button>
 
                         <div className="h-6 w-px bg-white/5 hidden sm:block" />
 

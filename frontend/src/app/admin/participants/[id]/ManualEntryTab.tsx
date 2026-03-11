@@ -10,7 +10,9 @@ import {
     Clock,
     Save,
     AlertCircle,
-    CheckCircle2
+    CheckCircle2,
+    Ruler,
+    Pill
 } from "lucide-react";
 
 interface ManualEntryTabProps {
@@ -38,7 +40,9 @@ export default function ManualEntryTab({ participantId }: ManualEntryTabProps) {
 
     const logTypes = [
         { id: "VITALS", label: "Medical Vitals", icon: Heart },
-        { id: "VISIT", label: "Clinic Visit", icon: Clock },
+        { id: "ANTHRO", label: "Anthropometrics", icon: Ruler },
+        { id: "DOSAGE", label: "Dosage Dispensed", icon: Pill },
+        { id: "VISIT", label: "Visit Completion", icon: CheckCircle2 },
         { id: "LAB", label: "Lab Results", icon: Droplets },
         { id: "SURVEY", label: "Questionnaire", icon: ClipboardCheck },
     ];
@@ -119,66 +123,89 @@ export default function ManualEntryTab({ participantId }: ManualEntryTabProps) {
                     </div>
 
                     {selectedType === "VITALS" && (
-                        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                            <div className="space-y-2">
-                                <label className="text-[11px] font-black text-slate-500 uppercase tracking-widest">Weight (kg)</label>
-                                <input
-                                    type="number" step="0.1"
-                                    value={vitals.weight}
-                                    onChange={(e) => setVitals({ ...vitals, weight: e.target.value })}
-                                    placeholder="0.0"
-                                    className="w-full bg-slate-900 border border-white/10 rounded-xl px-4 py-3 text-white focus:border-cyan-500 outline-none transition-all"
-                                />
+                        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 animate-in slide-in-from-right-4 duration-300">
+                            {[
+                                { label: "Weight (kg)", key: "weight", placeholder: "70.5" },
+                                { label: "Systolic BP", key: "systolic", placeholder: "120" },
+                                { label: "Diastolic BP", key: "diastolic", placeholder: "80" },
+                                { label: "Heart Rate (bpm)", key: "heartRate", placeholder: "72" },
+                                { label: "Temp (°C)", key: "temperature", placeholder: "36.5" },
+                                { label: "SpO2 (%)", key: "spO2", placeholder: "98" }
+                            ].map(field => (
+                                <div key={field.key} className="space-y-2">
+                                    <label className="text-[11px] font-black text-slate-500 uppercase tracking-widest">{field.label}</label>
+                                    <input
+                                        type="number" step="0.1"
+                                        value={(vitals as any)[field.key]}
+                                        onChange={(e) => setVitals({ ...vitals, [field.key]: e.target.value })}
+                                        placeholder={field.placeholder}
+                                        className="w-full bg-slate-900 border border-white/10 rounded-xl px-4 py-3 text-white focus:border-cyan-500 outline-none transition-all font-mono"
+                                    />
+                                </div>
+                            ))}
+                        </div>
+                    )}
+
+                    {selectedType === "ANTHRO" && (
+                        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 animate-in slide-in-from-right-4 duration-300">
+                            {[
+                                { label: "Height (cm)", key: "height", placeholder: "175" },
+                                { label: "Waist Circ (cm)", key: "waist", placeholder: "85" },
+                                { label: "Hip Circ (cm)", key: "hip", placeholder: "95" },
+                                { label: "BMI", key: "bmi", placeholder: "22.8" },
+                                { label: "Body Fat %", key: "fat", placeholder: "18.5" },
+                                { label: "Neck Circ (cm)", key: "neck", placeholder: "38" }
+                            ].map(field => (
+                                <div key={field.key} className="space-y-2">
+                                    <label className="text-[11px] font-black text-slate-500 uppercase tracking-widest">{field.label}</label>
+                                    <input
+                                        type="number" step="0.1"
+                                        className="w-full bg-slate-900 border border-white/10 rounded-xl px-4 py-3 text-white focus:border-cyan-500 outline-none transition-all font-mono"
+                                        placeholder={field.placeholder}
+                                    />
+                                </div>
+                            ))}
+                        </div>
+                    )}
+
+                    {selectedType === "DOSAGE" && (
+                        <div className="space-y-6 animate-in slide-in-from-right-4 duration-300">
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                                <div className="space-y-2">
+                                    <label className="text-[11px] font-black text-slate-500 uppercase tracking-widest">Intervention Arm</label>
+                                    <input value="NAD+ Booster High-Dose (Arm A)" disabled className="w-full bg-slate-950/50 border border-white/5 rounded-xl px-4 py-3 text-slate-500" />
+                                </div>
+                                <div className="space-y-2">
+                                    <label className="text-[11px] font-black text-slate-500 uppercase tracking-widest">Kit ID / Batch</label>
+                                    <input placeholder="K-45920-B" className="w-full bg-slate-900 border border-white/10 rounded-xl px-4 py-3 text-white focus:border-cyan-500 outline-none transition-all font-mono" />
+                                </div>
+                                <div className="space-y-2">
+                                    <label className="text-[11px] font-black text-slate-500 uppercase tracking-widest">Amount Dispensed</label>
+                                    <input placeholder="e.g. 500mg (30 capsules)" className="w-full bg-slate-900 border border-white/10 rounded-xl px-4 py-3 text-white focus:border-cyan-500 outline-none transition-all" />
+                                </div>
+                                <div className="space-y-2">
+                                    <label className="text-[11px] font-black text-slate-500 uppercase tracking-widest">Administration Route</label>
+                                    <select className="w-full bg-slate-900 border border-white/10 rounded-xl px-4 py-3 text-white focus:border-cyan-500 outline-none transition-all">
+                                        <option>Oral</option>
+                                        <option>Topical</option>
+                                        <option>Subcutaneous</option>
+                                        <option>Intravenous</option>
+                                    </select>
+                                </div>
                             </div>
-                            <div className="space-y-2">
-                                <label className="text-[11px] font-black text-slate-500 uppercase tracking-widest">Systolic BP</label>
-                                <input
-                                    type="number"
-                                    value={vitals.systolic}
-                                    onChange={(e) => setVitals({ ...vitals, systolic: e.target.value })}
-                                    placeholder="120"
-                                    className="w-full bg-slate-900 border border-white/10 rounded-xl px-4 py-3 text-white focus:border-cyan-500 outline-none transition-all"
-                                />
-                            </div>
-                            <div className="space-y-2">
-                                <label className="text-[11px] font-black text-slate-500 uppercase tracking-widest">Diastolic BP</label>
-                                <input
-                                    type="number"
-                                    value={vitals.diastolic}
-                                    onChange={(e) => setVitals({ ...vitals, diastolic: e.target.value })}
-                                    placeholder="80"
-                                    className="w-full bg-slate-900 border border-white/10 rounded-xl px-4 py-3 text-white focus:border-cyan-500 outline-none transition-all"
-                                />
-                            </div>
-                            <div className="space-y-2">
-                                <label className="text-[11px] font-black text-slate-500 uppercase tracking-widest">Heart Rate (bpm)</label>
-                                <input
-                                    type="number"
-                                    value={vitals.heartRate}
-                                    onChange={(e) => setVitals({ ...vitals, heartRate: e.target.value })}
-                                    placeholder="72"
-                                    className="w-full bg-slate-900 border border-white/10 rounded-xl px-4 py-3 text-white focus:border-cyan-500 outline-none transition-all"
-                                />
-                            </div>
-                            <div className="space-y-2">
-                                <label className="text-[11px] font-black text-slate-500 uppercase tracking-widest">Temp (°C)</label>
-                                <input
-                                    type="number" step="0.1"
-                                    value={vitals.temperature}
-                                    onChange={(e) => setVitals({ ...vitals, temperature: e.target.value })}
-                                    placeholder="36.5"
-                                    className="w-full bg-slate-900 border border-white/10 rounded-xl px-4 py-3 text-white focus:border-cyan-500 outline-none transition-all"
-                                />
-                            </div>
-                            <div className="space-y-2">
-                                <label className="text-[11px] font-black text-slate-500 uppercase tracking-widest">SpO2 (%)</label>
-                                <input
-                                    type="number"
-                                    value={vitals.spO2}
-                                    onChange={(e) => setVitals({ ...vitals, spO2: e.target.value })}
-                                    placeholder="98"
-                                    className="w-full bg-slate-900 border border-white/10 rounded-xl px-4 py-3 text-white focus:border-cyan-500 outline-none transition-all"
-                                />
+                        </div>
+                    )}
+
+                    {selectedType === "VISIT" && (
+                        <div className="space-y-6 animate-in slide-in-from-right-4 duration-300">
+                            <div className="bg-emerald-500/5 border border-emerald-500/20 rounded-2xl p-8 text-center">
+                                <CheckCircle2 size={40} className="text-emerald-500 mx-auto mb-4" />
+                                <h4 className="text-white font-black uppercase tracking-widest italic mb-2">Ready to close visit?</h4>
+                                <p className="text-slate-500 text-sm max-w-md mx-auto mb-6">Checking this box will mark the current protocol milestone as complete and trigger the next scheduled window.</p>
+                                <label className="flex items-center justify-center gap-3 cursor-pointer">
+                                    <input type="checkbox" className="w-5 h-5 rounded border-white/10 bg-slate-900 text-cyan-600 focus:ring-cyan-500" />
+                                    <span className="text-white font-bold text-sm uppercase tracking-widest">Confirm Milestone Completion</span>
+                                </label>
                             </div>
                         </div>
                     )}

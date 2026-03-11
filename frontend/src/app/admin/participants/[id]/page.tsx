@@ -14,10 +14,16 @@ import {
     CheckCircle2,
     AlertCircle,
     Loader2,
-    Database
+    Database,
+    Binary
 } from "lucide-react";
 import ManualEntryTab from "./ManualEntryTab";
 import ParticipantTasksTab from "./ParticipantTasksTab";
+import InterventionTab from "./InterventionTab";
+import KitsTab from "./KitsTab";
+import LabsTab from "./LabsTab";
+import CompensationTab from "./CompensationTab";
+import CompletionTab from "./CompletionTab";
 
 export default function ParticipantDetailPage({ params }: { params: Promise<{ id: string }> }) {
     const { id } = use(params);
@@ -53,6 +59,12 @@ export default function ParticipantDetailPage({ params }: { params: Promise<{ id
         { id: "overview", label: "Overview" },
         { id: "timeline", label: "Timeline" },
         { id: "eligibility", label: "Eligibility" },
+        { id: "intake", label: "Intake Profile" },
+        { id: "intervention", label: "Intervention" },
+        { id: "kits", label: "Kits" },
+        { id: "labs", label: "Labs" },
+        { id: "compensation", label: "Compensation" },
+        { id: "completion", label: "Completion" },
         { id: "tasks", label: "Tasks" },
         { id: "logs", label: "Daily Logs" },
         { id: "documents", label: "Documents" },
@@ -180,6 +192,100 @@ export default function ParticipantDetailPage({ params }: { params: Promise<{ id
                             )}
                         </div>
                     </div>
+                )}
+
+                {activeTab === 'intake' && (
+                    <div className="space-y-8 animate-in fade-in duration-500">
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                            <div className="glass p-8 rounded-3xl border border-white/5 space-y-6">
+                                <h3 className="text-white font-black uppercase tracking-widest flex items-center gap-3 italic">
+                                    <User size={18} className="text-cyan-400" /> Identity & Demographics
+                                </h3>
+                                <div className="grid grid-cols-1 gap-6">
+                                    {[
+                                        { label: "Legal First Name", val: participant.firstName || "Sarah" },
+                                        { label: "Legal Last Name", val: participant.lastName || "Miller" },
+                                        { label: "Date of Birth", val: participant.dob || "1988-05-12" },
+                                        { label: "Phone", val: participant.phone || "+1 (555) 123-4567" },
+                                        { label: "Email", val: participant.email || "sarah.m@example.com" }
+                                    ].map((f, i) => (
+                                        <div key={i} className="flex justify-between border-b border-white/5 pb-2">
+                                            <span className="text-[11px] font-black text-slate-500 uppercase tracking-widest italic">{f.label}</span>
+                                            <span className="text-sm font-bold text-white">{f.val}</span>
+                                        </div>
+                                    ))}
+                                </div>
+                            </div>
+
+                            <div className="glass p-8 rounded-3xl border border-white/5 space-y-6">
+                                <h3 className="text-white font-black uppercase tracking-widest flex items-center gap-3 italic">
+                                    <Database size={18} className="text-blue-400" /> Residence & ID
+                                </h3>
+                                <div className="space-y-6">
+                                    <div>
+                                        <label className="text-[11px] font-black text-slate-500 uppercase tracking-widest mb-2 block italic">Verified Address</label>
+                                        <p className="text-sm text-slate-300 font-medium bg-slate-900/50 p-4 rounded-xl border border-white/5">
+                                            742 Evergreen Terrace,<br />Springfield, OR 97403
+                                        </p>
+                                    </div>
+                                    <div className="flex items-center justify-between p-4 bg-emerald-500/5 border border-emerald-500/10 rounded-2xl">
+                                        <div className="flex items-center gap-3">
+                                            <CheckCircle2 size={18} className="text-emerald-500" />
+                                            <div>
+                                                <p className="text-xs font-black text-white uppercase tracking-widest">ID VERIFIED</p>
+                                                <p className="text-[10px] text-slate-500 font-bold uppercase tracking-wider">Driving License (Exp: 2028)</p>
+                                            </div>
+                                        </div>
+                                        <button className="text-[10px] font-black text-cyan-400 hover:text-cyan-300 uppercase tracking-widest transition-colors">View Document</button>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div className="glass p-8 rounded-3xl border border-white/5">
+                            <h3 className="text-white font-black uppercase tracking-widest flex items-center gap-3 italic mb-8">
+                                <FileText size={18} className="text-purple-400" /> Medical History & Baseline Forms
+                            </h3>
+                            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                                {[
+                                    { title: "Surgical History", status: "Provided", date: "Jan 10, 2026" },
+                                    { title: "Allergy Report", status: "Provided", date: "Jan 10, 2026" },
+                                    { title: "Medication List", status: "Updated", date: "Today" },
+                                    { title: "Screener V1", status: "Verified", date: "Jan 05, 2026" },
+                                    { title: "Baseline Survey", status: "Provided", date: "Jan 12, 2026" },
+                                    { title: "Imaging Release", status: "Signed", date: "Jan 10, 2026" }
+                                ].map((doc, i) => (
+                                    <div key={i} className="p-4 bg-slate-900 border border-white/5 hover:border-white/10 rounded-2xl transition-all cursor-pointer group">
+                                        <div className="flex justify-between items-start mb-2">
+                                            <h4 className="text-sm font-bold text-white group-hover:text-cyan-400 transition-colors uppercase">{doc.title}</h4>
+                                            <span className="text-[9px] font-black px-1.5 py-0.5 bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 rounded uppercase">{doc.status}</span>
+                                        </div>
+                                        <p className="text-[10px] text-slate-500 font-bold uppercase tracking-widest italic">{doc.date}</p>
+                                    </div>
+                                ))}
+                            </div>
+                        </div>
+                    </div>
+                )}
+
+                {activeTab === 'intervention' && (
+                    <InterventionTab participantId={id} />
+                )}
+
+                {activeTab === 'kits' && (
+                    <KitsTab participantId={id} />
+                )}
+
+                {activeTab === 'labs' && (
+                    <LabsTab participantId={id} />
+                )}
+
+                {activeTab === 'compensation' && (
+                    <CompensationTab participantId={id} />
+                )}
+
+                {activeTab === 'completion' && (
+                    <CompletionTab participantId={id} />
                 )}
 
                 {activeTab === 'manual' && (

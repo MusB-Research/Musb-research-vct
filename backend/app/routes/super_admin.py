@@ -39,11 +39,22 @@ async def get_platform_stats(
 ):
     """Full platform-wide statistics visible only to Super Admin."""
     total_users      = await db["users"].count_documents({})
-    total_admins     = await db["users"].count_documents({"role": {"$in": ["ADMIN", "SUPER_ADMIN"]}})
+    
+    # ── SECTION 5.1: Refined Staff Role Grouping (Ref: PR #182) ──────────────────
+    # Includes system admins, coordinators, PIs, and data managers.
+    staff_roles = ["ADMIN", "SUPER_ADMIN", "COORDINATOR", "PI", "DATA_MANAGER"]
+    total_staff      = await db["users"].count_documents({"role": {"$in": staff_roles}})
+    
+    # Sponsors and Team Members
     total_sponsors   = await db["users"].count_documents({"role": "SPONSOR"})
     total_sponsor_teams = await db["users"].count_documents({"role": {"$in": ["SPONSOR_ADMIN", "STUDY_MANAGER", "VIEWER"]}})
+    combined_sponsors = total_sponsors + total_sponsor_teams
     
-    # Combined studies from both modules
+    # Participants (Total registered accounts)
+    total_participants_acc = await db["users"].count_documents({"role": "PARTICIPANT"})
+    
+    # ── SECTION 5.2: Study & Clinical Counts ─────────────────────────────────────
+    # Combined studies from both modules (VCT app and Website)
     vct_studies    = await db["studies"].count_documents({})
     api_studies    = await db["api_study"].count_documents({})
     total_studies  = vct_studies + api_studies
@@ -52,6 +63,7 @@ async def get_platform_stats(
     active_api   = await db["api_study"].count_documents({"status": "ACTIVE"})
     active_studies = active_vct + active_api
     
+    # Participant Profiles
     total_parts      = await db["participants"].count_documents({})
     active_parts     = await db["participants"].count_documents({"status": {"$in": ["ACTIVE", "ENROLLED"]}})
     open_aes         = await db["adverseEvents"].count_documents({"status": {"$ne": "Resolved"}})
@@ -69,13 +81,13 @@ async def get_platform_stats(
 
     return {
         "totalUsers":       total_users,
-        "totalAdmins":      total_admins,
-        "totalSponsors":    total_sponsors,
+        "totalAdmins":      total_staff,         # Renamed/Repurposed to include all staff
+        "totalSponsors":    combined_sponsors,
         "totalSponsorTeams": total_sponsor_teams,
         "totalStudies":     total_studies,
         "activeStudies":    active_studies,
-        "totalParticipants": total_parts,
-        "activeParticipants": active_parts,
+        "totalParticipants": total_participants_acc, # Total registered accounts
+        "activeParticipants": active_parts,           # Enrolled/Active clinical status
         "openAdverseEvents": open_aes,
         "websiteStaff":     staff_count,
         "websiteInquiries": inquiry_count,
@@ -88,17 +100,27 @@ async def get_platform_stats(
 
 @router.get("/users")
 async def list_all_users(
-    role: Optional[str] = None,
+    role:  Optional[str] = None,
+    group: Optional[str] = None, # staff, participant, sponsor
     search: Optional[str] = None,
     skip: int = Query(0, ge=0),
     limit: int = Query(50, ge=1, le=200),
     current_user=Depends(require_super_admin),
     db: AsyncIOMotorDatabase = Depends(get_db),
 ):
-    """List every user in the platform with optional role/search filter."""
+    """List every user in the platform with optional role/group/search filter."""
     query: dict = {}
+    
+    # ── Role/Group Filtration ───────────────
     if role:
         query["role"] = role
+    elif group == "staff":
+        query["role"] = {"$in": ["ADMIN", "SUPER_ADMIN", "COORDINATOR", "PI", "DATA_MANAGER"]}
+    elif group == "participant":
+        query["role"] = "PARTICIPANT"
+    elif group == "sponsor":
+        query["role"] = {"$in": ["SPONSOR", "SPONSOR_ADMIN", "STUDY_MANAGER", "VIEWER"]}
+        
     if search:
         query["email"] = {"$regex": search, "$options": "i"}
 
@@ -140,7 +162,8 @@ async def create_user(
             detail="Participants cannot be created by super admin. Participants self-register through the application."
         )
 
-    if await db["users"].find_one({"email": body.email}):
+    email = body.email.lower().strip()
+    if await db["users"].find_one({"email": email}):
         raise HTTPException(status_code=409, detail="Email already in use.")
 
     # Validate Password
@@ -151,7 +174,7 @@ async def create_user(
     now = datetime.now(timezone.utc)
     doc = {
         "name":         encrypt_data(body.name),
-        "email":        body.email,
+        "email":        email,
         "passwordHash": get_password_hash(body.password),
         "role":         body.role,
         "createdAt":    now,
@@ -303,6 +326,34 @@ async def list_all_studies(
     api_total = await db["api_study"].count_documents(query)
     
     return {"studies": studies, "total": vct_total + api_total}
+
+
+@router.post("/studies", status_code=201)
+async def super_admin_create_study(
+    body: dict,
+    current_user=Depends(require_super_admin),
+    db: AsyncIOMotorDatabase = Depends(get_db),
+):
+    """Bypass standard admin workflow and create a study directly in the VCT module."""
+    now = datetime.now(timezone.utc)
+    
+    # Generate slug if not provided
+    if not body.get("slug"):
+        import re
+        slug = re.sub(r'[^a-z0-9]+', '-', body.get("title", "").lower()).strip('-')
+        body["slug"] = f"{slug}-{ObjectId()}" if not slug else slug
+        
+    doc = {
+        **body,
+        "createdAt": now,
+        "updatedAt": now,
+        "createdBy": current_user.user_id,
+        "source": body.get("source", "SUPER_ADMIN"),
+        "status": body.get("status", "ACTIVE")
+    }
+    
+    result = await db["studies"].insert_one(doc)
+    return {"id": str(result.inserted_id), "message": "Study created successfully by Super Admin."}
 
 
 class StudyStatusBody(BaseModel):
@@ -480,7 +531,7 @@ async def get_audit_logs(
             "userId":    log.get("userId", ""),
             "action":    log.get("action", ""),
             "resource":  log.get("resource", ""),
-            "details":   log.get("details", ""),
+            "details":   decrypt_data(log.get("details")) if log.get("details") else "—",
             "ipAddress": log.get("ipAddress", ""),
             "timestamp": log.get("timestamp"),
         })

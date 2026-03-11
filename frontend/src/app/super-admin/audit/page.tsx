@@ -12,10 +12,12 @@ const ACTION_COLOR: Record<string, string> = {
     UPDATE: "bg-amber-500/15 text-amber-300",
     CREATE: "bg-cyan-500/15 text-cyan-300",
     VERIFY_SUCCESS: "bg-violet-500/15 text-violet-300",
+    VERIFY: "bg-violet-500/15 text-violet-300",
     EXPORT: "bg-pink-500/15 text-pink-300",
 };
 
 function getActionColor(action: string) {
+    if (action.includes("FAILED") || action.includes("ERROR")) return "bg-red-500/15 text-red-300";
     for (const key of Object.keys(ACTION_COLOR)) {
         if (action.includes(key)) return ACTION_COLOR[key];
     }
@@ -142,7 +144,9 @@ export default function SuperAdminAuditPage() {
                                             {log.resource}
                                         </td>
                                         <td className="py-3.5 px-5 text-[12px] text-slate-500 font-mono">
-                                            {log.userId?.slice(-8) || "SYSTEM"}
+                                            {(!log.userId || log.userId === "SYSTEM" || log.userId.includes(":")) 
+                                                ? (log.userId || "SYSTEM") 
+                                                : `...${log.userId.slice(-8)}`}
                                         </td>
                                         <td className="py-3.5 px-5 text-[12px] text-slate-500 max-w-[250px] truncate">
                                             {log.details || "—"}

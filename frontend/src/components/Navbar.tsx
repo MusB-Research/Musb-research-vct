@@ -10,14 +10,11 @@ import { motion, AnimatePresence } from "framer-motion";
 import { ParticipantAuth, AdminAuth } from "@/lib/portal-auth";
 
 const links = [
-    { name: "FOR BUSINESSES", href: "https://www.musbhealth.com" },
-    { name: "FOR PATIENTS", href: "https://www.musbhealth.com" },
-    { name: "ABOUT US", href: "https://www.musbhealth.com" },
-    { name: "INNOVATION", href: "https://www.musbhealth.com" },
-    { name: "NEWS & EVENTS", href: "https://www.musbhealth.com" },
-    { name: "CAREERS", href: "https://www.musbhealth.com" },
-    { name: "CONTACT US", href: "https://www.musbhealth.com" },
-
+    { name: "STUDIES", href: "/studies" },
+    { name: "HOW IT WORKS", href: "/how-it-works" },
+    { name: "INNOVATION", href: "https://www.musbhealth.com/innovation" },
+    { name: "PRIVACY", href: "/privacy" },
+    { name: "HELP", href: "/help" },
 ];
 
 export default function Navbar() {
@@ -109,13 +106,13 @@ export default function Navbar() {
 
                 {/* Right Actions - Buttons matching screenshot exactly */}
                 <div className="flex items-center gap-3">
-                    <a
-                        href="https://www.musbhealth.com/"
+                    <Link
+                        href="/studies"
                         className="hidden xl:flex bg-cyan-500 text-slate-900 px-8 py-3 rounded-xl text-[12px] font-black tracking-[0.1em] items-center gap-2 shadow-[0_4px_15px_rgba(6,182,212,0.15)] hover:bg-white border border-transparent hover:border-slate-100 transition-all duration-300 transform hover:-translate-y-0.5 active:scale-95 whitespace-nowrap"
                     >
                         JOIN A STUDY
                         <ArrowRight size={18} className="stroke-[3px]" />
-                    </a>
+                    </Link>
 
                     {status === "authenticated" ? (
                         <div className="hidden xl:flex items-center gap-3 ml-2 pl-4 border-l border-slate-200">

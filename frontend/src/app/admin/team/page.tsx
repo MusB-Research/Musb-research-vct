@@ -23,6 +23,7 @@ const ROLES: Record<string, { color: string; bg: string; label: string }> = {
     PI: { color: "text-purple-400", bg: "bg-purple-500/10", label: "Principal Investigator" },
     PARTICIPANT: { color: "text-slate-400", bg: "bg-slate-500/10", label: "Trial Participant" },
     SPONSOR: { color: "text-amber-400", bg: "bg-amber-500/10", label: "Sponsor" },
+    DATA_MANAGER: { color: "text-emerald-400", bg: "bg-emerald-500/10", label: "Data Manager" },
 };
 
 export default function TeamPage() {
@@ -230,8 +231,8 @@ export default function TeamPage() {
                                     onChange={e => setInviteForm(p => ({ ...p, role: e.target.value }))}
                                     className="w-full bg-slate-800/60 border border-slate-700/50 rounded-xl px-4 py-3 text-sm text-white focus:outline-none focus:border-orange-500/50"
                                 >
-                                    {["COORDINATOR", "PI", "ADMIN"].map(r => (
-                                        <option key={r} value={r}>{ROLES[r].label}</option>
+                                    {["COORDINATOR", "PI", "ADMIN", "SPONSOR", "DATA_MANAGER"].map(r => (
+                                        <option key={r} value={r}>{ROLES[r]?.label || r}</option>
                                     ))}
                                 </select>
                             </div>

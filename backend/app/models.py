@@ -100,40 +100,138 @@ class Timepoint(BaseModel):
     name: str # e.g., "Day 0", "Week 4"
     tasks: list[str] = []
 
+    
+class StudyStatus:
+    DRAFT = "Draft"
+    PROPOSAL_SUBMITTED = "Proposal Submitted"
+    PROPOSAL_NEGOTIATION = "Proposal Under Negotiation"
+    AGREEMENT_SIGNED = "Agreement Signed"
+    IRB_PROTOCOL_INITIATED = "IRB Protocol Initiated"
+    IRB_SUBMISSION = "Under IRB Submission / Development"
+    IRB_APPROVED = "IRB Approved"
+    PREPARING_LAUNCH = "Preparing to Launch"
+    ACTIVE = "Active"
+    RECRUITING = "Recruiting"
+    RECRUITMENT_COMPLETED = "Recruitment Completed"
+    ANALYSIS_UNDERWAY = "Analysis Underway"
+    REPORT_DRAFT_CREATED = "Progress Report Draft Created"
+    REPORT_SENT_SPONSOR = "Project Report Sent to Sponsor"
+    COMPLETED = "Completed"
+    PAUSED = "Paused"
+    CLOSED_ARCHIVED = "Closed / Archived"
+
+class StudyType:
+    IN_PERSON = "In-person"
+    VIRTUAL = "Virtual"
+
+class LeadStatus:
+    NEW = "New"
+    CONTACT_ATTEMPTED = "Contact attempted"
+    NO_ANSWER = "No answer"
+    NOT_INTERESTED = "Not interested"
+    INTERESTED = "Interested"
+    NEEDS_MORE_INFO = "Needs more info"
+    PRESCREENING = "Prescreening in progress"
+    ELIGIBLE = "Eligible"
+    INELIGIBLE = "Ineligible"
+    SCHEDULED = "Scheduled"
+    CONSENTED = "Consented"
+    RANDOMIZED = "Randomized"
+    ACTIVE = "Active"
+    COMPLETED = "Completed"
+
+class LeadSource:
+    ONLINE = "online leads"
+    OFFLINE_UPLOAD = "offline manual upload"
+    DATABASE = "imported from MusB participant database"
+    REFERRAL = "referrals"
+    PAST_PARTICIPANT = "past participants"
+
+class SampleStatus:
+    KIT_ASSIGNED = "Kit Assigned"
+    AWAITING_COLLECTION = "Awaiting Collection"
+    COLLECTED = "Collected"
+    SHIPPED_BY_PARTICIPANT = "Shipped by Participant"
+    RECEIVED_AT_SITE = "Received at Site"
+    MISSING = "Missing"
+    DELAYED = "Delayed"
+    DAMAGED_INVALID = "Damaged / Invalid"
+
 class StudyBase(BaseModel):
     title: str
     slug: str
     description: str # Full Description
     shortDescription: Optional[str] = None # For study cards
     internalCode: Optional[str] = None
-    coordinatorId: Optional[str] = None # The coordinator assigned to this study
+    studyType: str = StudyType.VIRTUAL
+    
+    # Assignments
+    coordinatorId: Optional[str] = None # Primary coordinator
+    coordinatorIds: list[str] = [] # Multiple coordinators
+    piIds: list[str] = [] # Multiple PIs
+    sponsorId: Optional[str] = None # Linked sponsor account
+    sponsorName: Optional[str] = None # Denormalized for display/reports
+    
     condition: Optional[str] = None
+    indication: Optional[str] = None # Added per spec
     location: Optional[str] = None
     locationType: str = "Remote" # Remote, Hybrid
     
     # Timing
+    startDate: Optional[datetime] = None
+    endDate: Optional[datetime] = None
+    launchDate: Optional[datetime] = None
+    irbStatus: Optional[str] = None
+    
     duration: Optional[str] = None
     durationUnit: str = "weeks" # weeks, months
     timeCommitment: Optional[str] = None
     
-    # Eligibility & Enrollment
+    # Eligibility & Enrollment Targets
     minAge: int = 18
     maxAge: int = 100
     gender: str = "All" # All, Male, Female, Other
     inclusionCriteria: Optional[str] = None
     exclusionCriteria: Optional[str] = None
-    targetParticipants: int = 100
+    
+    # Targets per spec 3.3
+    targetScreened: int = 0
+    targetEligible: int = 0
+    targetConsented: int = 0
+    targetEnrollment: int = 0 # Added per life cycle logic
+    targetRandomized: int = 0
+    targetActive: int = 0
+    targetCompleted: int = 0 # finishers (finishers needed)
+    
+    # Actual Counts per spec 3.4
+    actualScreened: int = 0
+    actualEligible: int = 0
+    actualConsented: int = 0
+    actualEnrolled: int = 0 # Added
+    actualRandomized: int = 0
+    actualActive: int = 0
+    actualCompleted: int = 0
+    actualDropped: int = 0
+    
     regions: list[str] = ["Global"]
     
     # Features
     activities: list[str] = [] # Surveys, logging, etc.
     isPaid: bool = False
-    compensation: Optional[str] = None # Manual text override
+    compensation: Optional[str] = None 
     compensationAmount: Optional[float] = None
     compensationCurrency: str = "USD"
-    compensationDescription: Optional[str] = None
+    compensationEnabled: bool = False
     
-    status: str = "DRAFT" # DRAFT, ACTIVE, COMPLETED
+    status: str = StudyStatus.DRAFT
+    
+    # Sponsor & Agreement Section per spec 3.2
+    proposalSource: str = "online" # online / offline
+    proposalSubmittedDate: Optional[datetime] = None
+    agreementSignedDate: Optional[datetime] = None
+    contractStatus: Optional[str] = None
+    sponsorContactDetails: Optional[dict] = None
+    sponsorDocuments: list[dict] = [] # list of {name: str, url: str, uploadedAt: datetime}
     
     # Detailed Content
     overview: Optional[str] = None
@@ -147,7 +245,14 @@ class StudyBase(BaseModel):
     eligibilityRules: list[EligibilityRule] = []
     timepoints: list[Timepoint] = []
     assessmentIds: list[str] = [] # IDs of Assessments to use
+    formIds: list[str] = [] # IDs of Forms assigned
+    questionnaireIds: list[str] = [] # IDs of Questionnaires assigned
     randomizationEnabled: bool = False
+    
+    # Operations config per spec 3.5
+    labUploadsEnabled: bool = False
+    communicationRulesEnabled: bool = False
+    # compensationEnabled is handled above
     
     # Logistics Configuration
     kitType: Optional[str] = None # stool, blood, saliva, urine
@@ -159,6 +264,20 @@ class StudyBase(BaseModel):
     # Safety Configuration
     safetyAlertsEnabled: bool = True
     immediateNotificationSeverity: str = "SEVERE"
+
+    # Files and Archive per spec 3.6
+    protocolFiles: list[dict] = [] # {version: str, url: str, date: datetime}
+    irbApprovalFiles: list[dict] = []
+    consentFiles: list[dict] = []
+    questionnaireFiles: list[dict] = []
+    exportedPDFs: list[dict] = []
+    sponsorReports: list[dict] = []
+    finalProjectReport: Optional[dict] = None
+
+    # Automation Controls per spec 2.3
+    autoRecruitmentStop: bool = True
+    autoStudyComplete: bool = True
+    manualOverrideActive: bool = False # If true, manual control takes precedence over automation
 
     country: str = "Global" # Primary country
     consentLanguages: dict[str, str] = {} # e.g. {"US": "English...", "FR": "French..."}
@@ -185,7 +304,8 @@ class StudyOut(StudyBase):
 class ParticipantBase(BaseModel):
     userId: str
     studyId: Optional[str] = None
-    status: str = "LEAD"
+    status: str = LeadStatus.NEW
+    leadSource: str = LeadSource.ONLINE
     phone: Optional[str] = None
     phoneVerified: Optional[datetime] = None
     timezone: str = "UTC"

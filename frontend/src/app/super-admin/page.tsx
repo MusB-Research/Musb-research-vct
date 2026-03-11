@@ -80,8 +80,8 @@ export default function SuperAdminDashboard() {
             const apiUrl = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
 
             const [statsRes, logsRes] = await Promise.all([
-                fetch(`${apiUrl}/api/super-admin/stats`, { headers }),
-                fetch(`${apiUrl}/api/super-admin/audit-logs?limit=8`, { headers }),
+                fetch(`${apiUrl}/api/super-admin/stats`, { headers, cache: 'no-store' }),
+                fetch(`${apiUrl}/api/super-admin/audit-logs?limit=8`, { headers, cache: 'no-store' }),
             ]);
 
             if (statsRes.ok) setStats(await statsRes.json());
@@ -97,19 +97,28 @@ export default function SuperAdminDashboard() {
         }
     }, [token]);
 
-    useEffect(() => { fetchData(); }, [fetchData]);
+    useEffect(() => { 
+        fetchData(); 
+        
+        // 🚀 LIVE MONITORING: Auto-refresh data every 10 seconds
+        const interval = setInterval(() => {
+            fetchData();
+        }, 10000); // 10s interval
+
+        return () => clearInterval(interval);
+    }, [fetchData]);
 
     const statCards = stats ? [
-        { label: "Total Users", value: stats.totalUsers?.toLocaleString() || "0", icon: Users, color: "text-violet-400", href: "/super-admin/users", trend: "up" as const },
+        // Role-Specific Users (Ref: Sub-objective 2.1)
+        { label: "Total Participants", value: stats.totalParticipants?.toLocaleString() || "0", icon: Users, color: "text-emerald-400", href: "/super-admin/users?group=participant", trend: "up" as const },
+        { label: "Admins & Staff", value: stats.totalAdmins?.toLocaleString() || "0", icon: Crown, color: "text-amber-400", href: "/super-admin/users?group=staff" },
+        { label: "Sponsors & Teams", value: stats.totalSponsors?.toLocaleString() || "0", icon: Building2, color: "text-pink-400", href: "/super-admin/users?group=sponsor" },
         { label: "Total Studies", value: stats.totalStudies?.toLocaleString() || "0", icon: Briefcase, color: "text-blue-400", href: "/super-admin/studies" },
-        // Website Metrics
-        { label: "Website Inquiries", value: stats.websiteInquiries?.toLocaleString() || "0", icon: Megaphone, color: "text-amber-400", href: "/super-admin/website/inquiries" },
-        { label: "Newsletter subs", value: stats.subscribers?.toLocaleString() || "0", icon: Globe, color: "text-cyan-400", href: "/super-admin/website" },
 
-        { label: "Active Participants", value: stats.activeParticipants?.toLocaleString() || "0", icon: UserCheck, color: "text-emerald-400", href: "https://www.musbhealth.com/" },
-        { label: "Admins & Staff", value: stats.totalAdmins?.toLocaleString() || "0", icon: Crown, color: "text-amber-400", href: "/super-admin/users?role=ADMIN" },
-        { label: "Sponsors", value: stats.totalSponsors?.toLocaleString() || "0", icon: Building2, color: "text-pink-400", href: "/super-admin/sponsors" },
+        // Live Metrics
+        { label: "Active Enrolled", value: stats.activeParticipants?.toLocaleString() || "0", icon: UserCheck, color: "text-emerald-400", href: "https://www.musbhealth.com/" },
         { label: "Active Studies", value: stats.activeStudies?.toLocaleString() || "0", icon: Activity, color: "text-cyan-400", href: "/super-admin/studies" },
+        { label: "Website Inquiries", value: stats.websiteInquiries?.toLocaleString() || "0", icon: Megaphone, color: "text-amber-400", href: "/super-admin/website/inquiries" },
         { label: "Audit Events Today", value: stats.auditEventsToday?.toLocaleString() || "0", icon: FileText, color: "text-slate-400", href: "/super-admin/audit" },
     ] : [];
 
@@ -140,6 +149,10 @@ export default function SuperAdminDashboard() {
                         <RefreshCw size={13} className={loading ? "animate-spin" : ""} />
                         Refresh
                     </button>
+                    <Link href="/super-admin/studies/new"
+                        className="flex items-center gap-2 px-4 py-2.5 bg-slate-900 border border-slate-800 hover:border-blue-500/30 text-slate-300 text-[12px] font-bold uppercase tracking-widest rounded-xl transition-all">
+                        <Briefcase size={13} /> New Protocol
+                    </Link>
                     <Link href="/super-admin/users"
                         className="flex items-center gap-2 px-4 py-2.5 bg-gradient-to-r from-violet-700 to-purple-700 hover:from-violet-600 hover:to-purple-600 text-white text-[12px] font-bold uppercase tracking-widest rounded-xl transition-all shadow-lg shadow-violet-800/30">
                         <Users size={13} /> Create User

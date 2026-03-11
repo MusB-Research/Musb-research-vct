@@ -4,8 +4,8 @@ from fastapi import APIRouter, Depends, HTTPException, status, Query
 from bson import ObjectId
 
 from app.database import get_db
-from app.models import StudyCreate, StudyOut
-from app.auth import require_admin
+from app.models import StudyCreate, StudyOut, StudyStatus
+from app.auth import require_admin, get_current_user
 
 router = APIRouter(prefix="/api/studies", tags=["Studies"])
 
@@ -189,18 +189,82 @@ async def update_study(
     return _map_study(doc)
 
 
-@router.delete("/{study_id}", status_code=status.HTTP_204_NO_CONTENT)
-async def delete_study(
+    return {"status": "success", "message": "Study deleted"}
+
+
+@router.patch("/{study_id}/status")
+async def update_study_status(
     study_id: str,
-    current_user=Depends(require_admin),
+    body: dict, # {"status": "...", "manualOverrideActive": bool}
+    current_user=Depends(get_current_user),
     db=Depends(get_db)
 ):
-    """Admin only: Soft-delete (close) a study."""
+    """
+    Global Study Lifecycle Hook (Ref Spec 2.1, 2.2)
+    Allows Super Admin, PI, and Clinical Coordinators to change status.
+    Sponsor can view (via GET) but not change.
+    """
     if not ObjectId.is_valid(study_id):
         raise HTTPException(status_code=400, detail="Invalid study ID")
-    result = await db["studies"].update_one(
-        {"_id": ObjectId(study_id)},
-        {"$set": {"status": "CLOSED", "updatedAt": datetime.now(timezone.utc)}}
-    )
-    if result.matched_count == 0:
-        raise HTTPException(status_code=404, detail="Study not found")
+    
+    oid = ObjectId(study_id)
+    study = await db["studies"].find_one({"_id": oid})
+    if not study:
+         study = await db["api_study"].find_one({"_id": oid})
+         if not study:
+             raise HTTPException(status_code=404, detail="Study not found")
+
+    # 1. Role-based Permission Check (Spec 2.2)
+    user_role = current_user.role
+    user_id = current_user.user_id
+    
+    is_authorized = False
+    if user_role in ("SUPER_ADMIN", "ADMIN"):
+        is_authorized = True
+    elif user_role == "PI":
+        # Check if user is in piIds
+        if user_id in study.get("piIds", []):
+            is_authorized = True
+    elif user_role == "COORDINATOR":
+        # Check if user is primary coordinator or in coordinatorIds
+        if user_id == study.get("coordinatorId") or user_id in study.get("coordinatorIds", []):
+            is_authorized = True
+    
+    if not is_authorized:
+        raise HTTPException(
+            status_code=403, 
+            detail="Access Denied: You do not have permission to change this study's status."
+        )
+
+    # 2. Update Status
+    new_status = body.get("status")
+    if not new_status:
+        raise HTTPException(status_code=400, detail="Status field is required")
+        
+    update_doc = {
+        "status": new_status,
+        "updatedAt": datetime.now(timezone.utc),
+        "updatedBy": user_id
+    }
+    
+    # Handle manual override logic (Spec 2.3)
+    if "manualOverrideActive" in body:
+        update_doc["manualOverrideActive"] = body["manualOverrideActive"]
+
+    # Sync with Website Module (is_active toggle)
+    is_active_for_website = new_status.upper() in ["ACTIVE", "RECRUITING", "RECRUITMENT COMPLETED", "OPEN"]
+    
+    # Update both potential collections for consistency
+    await db["studies"].update_one({"_id": oid}, {"$set": update_doc})
+    
+    # Also update api_study if it exists
+    website_updates = {**update_doc, "is_active": is_active_for_website}
+    if "updatedAt" in website_updates:
+        website_updates["updated_at"] = website_updates.pop("updatedAt")
+        
+    await db["api_study"].update_one({"_id": oid}, {"$set": website_updates})
+
+    return {
+        "message": f"Study status updated to {new_status}",
+        "authorized_as": user_role
+    }

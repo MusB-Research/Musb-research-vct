@@ -14,6 +14,78 @@ from app.routes.audit import log_audit_event
 router = APIRouter(prefix="/api/participants", tags=["Participants"])
 
 
+async def _sync_study_automations(study_id: str, db):
+    """
+    Check if a study should automatically move status based on targets.
+    Ref spec 2.3
+    """
+    if not study_id: return
+    
+    study = None
+    collection = "studies"
+    if ObjectId.is_valid(study_id):
+        oid = ObjectId(study_id)
+        study = await db["studies"].find_one({"_id": oid})
+        if not study:
+            study = await db["api_study"].find_one({"_id": oid})
+            collection = "api_study"
+    
+    if not study: return
+    
+    # Check if manual override is active (spec 2.3)
+    if study.get("manualOverrideActive"): 
+        return
+
+    updates = {}
+    current_status = study.get("status", "Draft")
+
+    # 1. Check Recruitment Target
+    # Statuses that are considered "IN RECRUITMENT"
+    active_recruitment_statuses = ["ACTIVE", "RECRUITING", "Recruiting", "Active"]
+    
+    if study.get("autoRecruitmentStop") and current_status in active_recruitment_statuses:
+        actual = study.get("actualEnrolled", 0)
+        target = study.get("targetEnrollment", 0) or study.get("targetParticipants", 0)
+        if actual >= target and target > 0:
+            updates["status"] = "Recruitment Completed"
+
+    # 2. Check Study Completion Target
+    if study.get("autoStudyComplete") and current_status not in ["Completed", "CLOSED", "Paused", "Closed / Archived"]:
+        actual = study.get("actualCompleted", 0)
+        target = study.get("targetCompleted", 0)
+        if actual >= target and target > 0:
+            updates["status"] = "Completed"
+
+    if updates:
+        updates["updatedAt"] = datetime.now(timezone.utc)
+        await db[collection].update_one({"_id": study["_id"]}, {"$set": updates})
+
+
+async def _increment_study_counter(db, study_id: str, field: str):
+    """Helper to increment a study aggregate counter and trigger automations."""
+    if not study_id: return
+    
+    collection = "studies"
+    is_oid = ObjectId.is_valid(study_id)
+    query = {"_id": ObjectId(study_id)} if is_oid else {"slug": study_id}
+    
+    # Try finding in 'studies'
+    doc = await db["studies"].find_one(query)
+    if not doc:
+        # Try 'api_study'
+        doc = await db["api_study"].find_one(query)
+        collection = "api_study"
+    
+    if doc:
+        await db[collection].update_one(
+            {"_id": doc["_id"]},
+            {"$inc": {field: 1}}
+        )
+        # Check automations
+        await _sync_study_automations(str(doc["_id"]), db)
+
+
+
 # ─── My Profile (Participant self) ─────────────────────────────────────────────
 # IMPORTANT: These /me/* routes MUST be defined BEFORE /{participant_id} routes.
 # FastAPI matches routes in order — if the parameterized route comes first,
@@ -337,6 +409,11 @@ async def submit_screener(
         {"$set": {"status": new_status, "studyId": body.studyId, "updatedAt": now}}
     )
 
+    # Sync Study Counts (actualScreened)
+    await _increment_study_counter(db, body.studyId, "actualScreened")
+    if is_eligible:
+        await _increment_study_counter(db, body.studyId, "actualEligible")
+
     # Email Notification — look up name from the users collection (not participant doc)
     from app.utils.email import send_email_notification
     subject = "MUSB Research: Study Screener Results"
@@ -412,6 +489,9 @@ async def sign_consent(
         {"_id": participant["_id"]},
         {"$set": {"status": "CONSENTED", "consentedAt": now, "studyId": body.studyId, "updatedAt": now}}
     )
+
+    # Sync Study Counts (actualConsented)
+    await _increment_study_counter(db, body.studyId, "actualConsented")
     
     return ConsentOut(
         id=str(result.inserted_id),
@@ -487,6 +567,10 @@ async def _enroll_logic(p: dict, db):
             "updatedAt": now
         }}
     )
+
+    # Sync Study Counts (actualEnrolled / actualActive)
+    await _increment_study_counter(db, study_id, "actualEnrolled")
+    await _increment_study_counter(db, study_id, "actualActive")
 
     return {
         "message": "Participant enrolled successfully",

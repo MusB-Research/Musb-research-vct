@@ -109,10 +109,16 @@ export default function SuperAdminStudiesPage() {
                     </h1>
                     <p className="text-slate-500 text-sm mt-1">{total.toLocaleString()} total studies across all statuses</p>
                 </div>
-                <button onClick={fetchStudies} disabled={loading}
-                    className="p-2.5 bg-slate-900 border border-slate-800 hover:border-violet-500/30 text-slate-400 rounded-xl transition-all disabled:opacity-50">
-                    <RefreshCw size={15} className={loading ? "animate-spin" : ""} />
-                </button>
+                <div className="flex items-center gap-3">
+                    <button onClick={fetchStudies} disabled={loading}
+                        className="p-2.5 bg-slate-900 border border-slate-800 hover:border-violet-500/30 text-slate-400 rounded-xl transition-all disabled:opacity-50">
+                        <RefreshCw size={15} className={loading ? "animate-spin" : ""} />
+                    </button>
+                    <Link href="/super-admin/studies/new"
+                        className="flex items-center gap-2 px-4 py-2.5 bg-gradient-to-r from-blue-700 to-indigo-700 hover:from-blue-600 hover:to-indigo-600 text-white text-[12px] font-bold uppercase tracking-widest rounded-xl transition-all shadow-lg shadow-blue-800/30">
+                        <Briefcase size={13} /> New Protocol
+                    </Link>
+                </div>
             </div>
 
             {/* Filters */}

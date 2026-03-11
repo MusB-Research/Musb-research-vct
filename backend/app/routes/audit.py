@@ -63,7 +63,8 @@ async def get_audit_logs(
 
     query = {}
     if action:
-        query["action"] = action
+        # User a regex to allow matching prefixes like LOGIN for LOGIN_SUCCESS
+        query["action"] = {"$regex": f"^{action}", "$options": "i"}
     if user_id:
         query["userId"] = user_id
 

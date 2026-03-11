@@ -76,12 +76,40 @@ async def complete_task(
             raise HTTPException(status_code=403, detail="Forbidden: You can only complete your own tasks.")
             
     now = datetime.now(timezone.utc)
-    await db["taskInstances"].update_one(
+    res = await db["taskInstances"].update_one(
         {"_id": ObjectId(instance_id)},
         {"$set": {"status": "COMPLETED", "completedDate": now}}
     )
-    if result.matched_count == 0:
+    
+    if res.matched_count == 0:
         raise HTTPException(status_code=404, detail="Task instance not found")
+
+    # Check if this was the last pending/available task for this participant
+    participant_id = task.get("participantId")
+    if participant_id:
+        remaining = await db["taskInstances"].count_documents({
+            "participantId": participant_id,
+            "status": {"$ne": "COMPLETED"}
+        })
+        
+        if remaining == 0:
+            p = await db["participants"].find_one({"_id": ObjectId(participant_id)})
+            if p and p.get("status") != "COMPLETED":
+                await db["participants"].update_one(
+                    {"_id": ObjectId(participant_id)},
+                    {"$set": {"status": "COMPLETED", "updatedAt": now}}
+                )
+                
+                # Increment Study actualCompleted and actualActive (decrement active?)
+                # Actually spec 3.4 says 'actualActive' and 'actualCompleted'.
+                # We'll increment completed.
+                from app.routes.participants import _increment_study_counter
+                study_id = p.get("studyId")
+                if study_id:
+                    await _increment_study_counter(db, study_id, "actualCompleted")
+                    # Decrement actualActive? Usually active means enrolled but not yet completed/dropped.
+                    # We'll just focus on the increments for now as requested.
+
     return {"message": "Task marked as completed"}
 
 

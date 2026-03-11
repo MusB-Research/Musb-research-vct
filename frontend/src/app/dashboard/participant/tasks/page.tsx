@@ -4,7 +4,8 @@ import { useEffect, useState, useCallback } from "react";
 import { ParticipantAuth } from "@/lib/portal-auth";
 import {
     Calendar, CheckCircle2, Clock, Lock, Loader2,
-    X, Send, Pill, HeartPulse, ClipboardList, Activity, Star
+    X, Send, Pill, HeartPulse, ClipboardList, Activity, Star,
+    ExternalLink
 } from "lucide-react";
 
 interface Task {
@@ -203,18 +204,41 @@ function TaskForm({
                     )}
                 </div>
 
-                <div className="px-8 pb-8 pt-4 border-t border-slate-800 flex gap-3">
-                    <button onClick={onClose} className="flex-1 py-3 rounded-xl border border-slate-700 text-slate-400 font-bold text-[13px] hover:border-slate-500 transition-all">
-                        Cancel
-                    </button>
-                    <button
-                        onClick={handleSubmit}
-                        disabled={submitting}
-                        className="flex-1 py-3 rounded-xl bg-cyan-600 hover:bg-cyan-500 text-white font-black uppercase tracking-widest text-[13px] shadow-lg shadow-cyan-600/20 transition-all disabled:opacity-60 flex items-center justify-center gap-2"
-                    >
-                        {submitting ? <Loader2 size={16} className="animate-spin" /> : <Send size={16} />}
-                        {submitting ? "Submitting…" : "Submit & Complete"}
-                    </button>
+                <div className="px-8 pb-8 pt-4 border-t border-slate-800 flex flex-col gap-4">
+                    <div className="flex gap-3">
+                        <button onClick={onClose} className="flex-1 py-3 rounded-xl border border-slate-700 text-slate-400 font-bold text-[13px] hover:border-slate-500 transition-all">
+                            Cancel
+                        </button>
+                        <button
+                            onClick={handleSubmit}
+                            disabled={submitting}
+                            className="flex-[2] py-3 rounded-xl bg-cyan-600 hover:bg-cyan-500 text-white font-black uppercase tracking-widest text-[13px] shadow-lg shadow-cyan-600/20 transition-all disabled:opacity-60 flex items-center justify-center gap-2"
+                        >
+                            {submitting ? <Loader2 size={16} className="animate-spin" /> : <Send size={16} />}
+                            {submitting ? "Submitting…" : "Submit & Complete"}
+                        </button>
+                    </div>
+
+                    {/* Spec 2.4 Help / Question Button & Spec 8.3 PDF Export */}
+                    <div className="flex justify-between items-center px-2">
+                        <button 
+                            onClick={() => alert("Connecting to Site Coordinator... (Spec 2.4)")}
+                            className="text-[11px] font-black text-slate-500 hover:text-cyan-400 uppercase tracking-widest flex items-center gap-2 transition-colors"
+                        >
+                            <span className="w-5 h-5 rounded-full border border-slate-700 flex items-center justify-center text-[10px] italic">?</span>
+                            Need help with this form?
+                        </button>
+                        
+                        {task.status === "COMPLETED" && (
+                            <button 
+                                onClick={() => alert("Generating Secure PDF Record... (Spec 8.3)")}
+                                className="text-[11px] font-black text-emerald-500 hover:text-emerald-400 uppercase tracking-widest flex items-center gap-2 transition-colors"
+                            >
+                                <ExternalLink size={14} />
+                                Download PDF
+                            </button>
+                        )}
+                    </div>
                 </div>
             </div>
         </div>

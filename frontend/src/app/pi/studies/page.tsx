@@ -4,7 +4,7 @@ import { useState } from "react";
 import { 
     Plus, Search, Filter, FlaskConical, Target, Calendar, 
     ArrowRight, Activity, HeartPulse, Microscope, 
-    ChevronRight, Layers, Settings, ShieldCheck
+    ChevronRight, Layers, Settings, ShieldCheck, Users
 } from "lucide-react";
 import Link from "next/link";
 

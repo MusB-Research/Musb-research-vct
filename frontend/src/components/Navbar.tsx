@@ -10,11 +10,24 @@ import { motion, AnimatePresence } from "framer-motion";
 import { ParticipantAuth, AdminAuth } from "@/lib/portal-auth";
 
 const links = [
-    { name: "STUDIES", href: "/studies" },
-    { name: "HOW IT WORKS", href: "/how-it-works" },
-    { name: "INNOVATION", href: "https://www.musbhealth.com/innovation" },
-    { name: "PRIVACY", href: "/privacy" },
-    { name: "HELP", href: "/help" },
+    { name: "FOR BUSINESSES", href: "https://www.musbhealth.com/" },
+    { name: "FOR PATIENTS", href: "https://www.musbhealth.com/" },
+    {
+        name: "ABOUT US",
+        href: "https://www.musbhealth.com/",
+        hasDropdown: true,
+        subLinks: [
+            { name: "WHY CHOOSE MUSB RESEARCH", href: "https://www.musbhealth.com/" },
+            { name: "CAPABILITIES", href: "https://www.musbhealth.com/" },
+            { name: "FACILITIES", href: "https://www.musbhealth.com/" },
+            { name: "OUR TEAM", href: "https://www.musbhealth.com/" },
+            { name: "FIND A STUDY", href: "/studies" },
+        ]
+    },
+    { name: "INNOVATION", href: "https://www.musbhealth.com/" },
+    { name: "NEWS & EVENTS", href: "https://www.musbhealth.com/" },
+    { name: "CAREERS", href: "https://www.musbhealth.com/" },
+    { name: "CONTACT US", href: "https://www.musbhealth.com/" },
 ];
 
 export default function Navbar() {
@@ -82,14 +95,27 @@ export default function Navbar() {
                 <div className="hidden xl:flex items-center gap-6 2xl:gap-11">
                     {links.map((link) => {
                         const isActive = pathname === link.href;
+                        const hasSubLinks = (link as any).subLinks && (link as any).subLinks.length > 0;
+
                         return (
-                            <div key={link.name} className="relative group/nav h-full flex items-center shrink-0">
+                            <div
+                                key={link.name}
+                                className="relative group/nav h-full flex items-center shrink-0"
+                                onMouseEnter={() => setHoveredLink(link.name)}
+                                onMouseLeave={() => setHoveredLink(null)}
+                            >
                                 <a
                                     href={link.href}
                                     className={`text-[11px] font-black leading-tight tracking-[0.12em] whitespace-nowrap transition-all duration-300 flex items-center gap-1.5 py-8 ${isActive ? "text-cyan-600" : "text-slate-900 hover:text-cyan-600"
                                         }`}
                                 >
                                     {link.name}
+                                    {(link as any).hasDropdown && (
+                                        <ChevronDown
+                                            size={14}
+                                            className={`ml-0.5 transition-transform duration-300 ${hoveredLink === link.name ? "rotate-180 text-cyan-500" : "opacity-60"}`}
+                                        />
+                                    )}
                                     {/* Active Indicator Bar */}
                                     {isActive && (
                                         <motion.div
@@ -99,6 +125,31 @@ export default function Navbar() {
                                         />
                                     )}
                                 </a>
+
+                                {/* Dropdown Menu matching screenshot */}
+                                <AnimatePresence>
+                                    {hasSubLinks && hoveredLink === link.name && (
+                                        <motion.div
+                                            initial={{ opacity: 0, y: 15, scale: 0.95 }}
+                                            animate={{ opacity: 1, y: 0, scale: 1 }}
+                                            exit={{ opacity: 0, y: 10, scale: 0.95 }}
+                                            transition={{ duration: 0.2, ease: "easeOut" }}
+                                            className="absolute top-full left-1/2 -translate-x-1/2 w-[320px] bg-white/80 backdrop-blur-xl border border-white/40 shadow-[0_20px_50px_rgba(0,0,0,0.1)] rounded-[24px] overflow-hidden p-4 z-[10000]"
+                                        >
+                                            <div className="flex flex-col gap-1">
+                                                {(link as any).subLinks.map((sub: any) => (
+                                                    <a
+                                                        key={sub.name}
+                                                        href={sub.href}
+                                                        className="group/sub flex items-center px-6 py-4 rounded-[16px] text-[#2D3A4B] text-[11px] font-bold tracking-[0.1em] hover:bg-cyan-500/10 hover:text-cyan-600 transition-all duration-300 uppercase"
+                                                    >
+                                                        {sub.name}
+                                                    </a>
+                                                ))}
+                                            </div>
+                                        </motion.div>
+                                    )}
+                                </AnimatePresence>
                             </div>
                         );
                     })}
@@ -181,9 +232,10 @@ export default function Navbar() {
                                         key={link.name}
                                         href={link.href}
                                         onClick={() => setIsMobileMenuOpen(false)}
-                                        className="text-slate-800 text-lg font-black uppercase tracking-widest hover:text-cyan-500 transition-colors"
+                                        className="text-slate-800 text-lg font-black uppercase tracking-widest hover:text-cyan-500 transition-colors flex items-center"
                                     >
                                         {link.name}
+                                        {(link as any).hasDropdown && <ChevronDown size={20} className="ml-2 opacity-60" />}
                                     </a>
                                 ))}
                             </div>

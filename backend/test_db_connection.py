@@ -20,18 +20,11 @@ async def test_connection():
     except Exception as e:
         print(f"❌ SRV Failed: {e}")
         
-        # 2. Try Standard String Fallback
-        print("\nAttempting Standard Connection String Fallback...")
+        # 2. Try Standard String Fallback (Legacy)
+        # print("\nAttempting Standard Connection String Fallback...")
         # Reconstruct standard URI from SRV segments (Hardcoded for this specific cluster)
-        standard_uri = "mongodb://barenyamishra123_db_user:7QAUakrbMgAIJxdr@ac-lrg4c0o-shard-00-00.xlng30r.mongodb.net:27017,ac-lrg4c0o-shard-00-01.xlng30r.mongodb.net:27017,ac-lrg4c0o-shard-00-02.xlng30r.mongodb.net:27017/musb_research?ssl=true&replicaSet=atlas-lrg4c0o-shard-0&authSource=admin"
-        
-        try:
-            client = AsyncIOMotorClient(standard_uri, serverSelectionTimeoutMS=5000)
-            await client.admin.command("ping")
-            print("✅ Success! Standard Connection String worked.")
-            print(f"\nNEW_DATABASE_URL={standard_uri}")
-        except Exception as e2:
-            print(f"❌ Standard Connection Failed: {e2}")
+        # standard_uri = "mongodb://barenyamishra123_db_user:..."
+        pass
         print("\nCommon fixes:")
         print("1. IP Whitelist: Check MongoDB Atlas -> Network Access. Ensure your current IP is whitelisted.")
         print("2. Credentials: Check DATABASE_URL in .env for correct username/password.")

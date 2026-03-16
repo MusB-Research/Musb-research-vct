@@ -1,10 +1,13 @@
 import asyncio
+import os
 from motor.motor_asyncio import AsyncIOMotorClient
-import sys
+from dotenv import load_dotenv
+
+load_dotenv()
 
 async def main():
-    uri = "mongodb+srv://barenyamishra123_db_user:7QAUakrbMgAIJxdr@cluster0.xlng30r.mongodb.net/"
-    db_name = "musb_research"
+    uri = os.getenv("DATABASE_URL")
+    db_name = os.getenv("DATABASE_NAME", "musb_research")
     client = AsyncIOMotorClient(uri)
     db = client[db_name]
     
